@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SQLModelDescription",
+  "description": "Schema for describing an SQLModel class to be generated.",
+  "type": "object",
+  "properties": {
+    "table_name": {
+      "description": "The name of the database table.",
+      "type": "string"
+    },
+    "model_name": {
+      "description": "The name of the Python class for the SQLModel (e.g., 'User', 'Product'). Should be PascalCase.",
+      "type": "string"
+    },
+    "description": {
+      "description": "A docstring for the SQLModel class.",
+      "type": "string"
+    },
+    "fields": {
+      "description": "An array of field definitions for the SQLModel.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/FieldDefinition"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "table_name",
+    "model_name",
+    "fields"
+  ],
+  "definitions": {
+    "FieldDefinition": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the field (Python attribute name).",
+          "type": "string"
+        },
+        "type": {
+          "description": "The Python type of the field as a string (e.g., 'str', 'int', 'Optional[str]', 'List[int]', 'datetime.date', 'uuid.UUID', 'float', 'bool', 'Dict[str, Any]', 'Any').",
+          "type": "string"
+        },
+        "description": {
+          "description": "A docstring or comment for the field.",
+          "type": "string"
+        },
+        "primary_key": {
+          "description": "Whether this field is a primary key.",
+          "type": "boolean",
+          "default": false
+        },
+        "nullable": {
+          "description": "Whether this field can be null in the database. If 'type' starts with 'Optional[', this should generally be true. If 'type' does not start with 'Optional[' and this is not set, it defaults to false. If set, this value takes precedence.",
+          "type": "boolean"
+        },
+        "default": {
+          "description": "The default value for the field. Can be any JSON-compatible type (string, number, boolean, null). For SQLModel, this often means the Python default value.",
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "default_factory": {
+          "description": "A string representing a Python callable for default_factory (e.g., 'datetime.utcnow', 'uuid.uuid4').",
+          "type": "string"
+        },
+        "foreign_key": {
+          "description": "The foreign key constraint string (e.g., 'related_table.id').",
+          "type": "string"
+        },
+        "index": {
+          "description": "Whether to create an index on this field.",
+          "type": "boolean",
+          "default": false
+        },
+        "unique": {
+          "description": "Whether this field should have a unique constraint.",
+          "type": "boolean",
+          "default": false
+        },
+        "sa_column_kwargs": {
+          "description": "A dictionary of additional keyword arguments for the SQLAlchemy Column constructor (e.g., {\"server_default\": \"NOW()\"}). Keys are argument names, values are their corresponding values.",
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ]
+    }
+  }
+}

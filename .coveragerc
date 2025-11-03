@@ -1,0 +1,12 @@
+[run]
+omit =
+    tests/*
+    src/extrai/llm_providers/*
+    /tmp/**
+    */tmp/**
+    **/site-packages/**
+    **/dynamic_sqlmodel_module_*.py
+
+[report]
+# To show lines that were not executed (optional, uncomment if you want this):
+# show_missing = True

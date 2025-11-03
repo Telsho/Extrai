@@ -1,0 +1,46 @@
+name: Python CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: uv pip install --system -e .[dev]
+
+    - name: Lint with Ruff
+      run: uv run ruff check .
+    
+    - name: Check formatting with Ruff
+      run: uv run ruff format --check .
+
+    - name: Test with coverage
+      run: uv run coverage run -m pytest
+
+    - name: Generate coverage report
+      run: uv run coverage report

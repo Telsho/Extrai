@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Extrai"
+version = "1.0.0"
+authors = [
+    {name = "Elias Thouant", email = "elias.thouant@gmail.com"},
+]
+description = "Structured data extraction with LLM majority vote"
+readme = "README.md"
+dependencies = [
+    "jsonschema==4.24.0",
+    "openai==1.84.0",
+    "pydantic==2.11.5",
+    "sqlalchemy==2.0.41",
+    "sqlmodel==0.0.24",
+]
+
+[project.urls]
+Homepage = "https://github.com/Telsho/Extrai"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "aiofiles",
+    "pytest-asyncio",
+    "ruff",
+    "coverage",
+    "sphinx",
+    "furo",
+    "sphinx-copybutton",
+    "sphinxcontrib-mermaid",
+    "build",
+    "twine"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]

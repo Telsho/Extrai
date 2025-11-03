@@ -1,0 +1,1 @@
+Order ORD123 contains two items: a Super Widget (SW001) and a Mega Gadget (MG002). Customer is John Doe.
