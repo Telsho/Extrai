@@ -1,0 +1,532 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="LLM Providers" href="llm_providers.html"><link rel="prev" title="Example JSON Generator" href="example_json_generator.html">
+        <link rel="prefetch" href="_static/logo.jpg" as="image">
+
+    <link rel="shortcut icon" href="_static/logo.ico"><!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>Analytics Collector - Extrai 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=acfd86a5" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">Extrai 1.0.0 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="_static/logo.jpg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Extrai 1.0.0 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Intro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html#worflow-overview">Worflow Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html#key-features">Key Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started: A Step-by-Step Tutorial</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">How-to Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="how_to/generate_sql_model.html">How to Generate SQL Models from Text</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to/generate_example_json.html">How to Generate an Example JSON</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to/customize_extraction_prompts.html">How to Customize Extraction Prompts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to/handle_complex_data_with_hierarchical_extraction.html">How to Handle Complex Data with Hierarchical Extraction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to/using_multiple_llm_providers.html">How to Use Multiple LLM Providers</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Core Concepts</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="concepts/architecture_overview.html">Architecture Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts/consensus_mechanism.html">The Consensus Mechanism</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="workflow_orchestrator.html">Workflow Orchestrator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sqlmodel_generator.html">SQLModel Generator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_json_generator.html">Example JSON Generator</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Analytics Collector</a></li>
+<li class="toctree-l1"><a class="reference internal" href="llm_providers.html">LLM Providers</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/modules.html">extrai</a><input aria-label="Toggle navigation of extrai" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="api/extrai.html">llm_consensus_extraction package</a><input aria-label="Toggle navigation of llm_consensus_extraction package" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="api/extrai.core.html">llm_consensus_extraction.core package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/extrai.llm_providers.html">llm_extraction_consensus.llm_providers package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api/extrai.utils.html">llm_extraction_consensus.utils package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="genindex.html">Index</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Community</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/analytics_collector.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="analytics-collector">
+<span id="id1"></span><h1>Analytics Collector<a class="headerlink" href="#analytics-collector" title="Link to this heading">¶</a></h1>
+<p>The <cite>WorkflowAnalyticsCollector</cite> is a dedicated component for collecting and storing detailed metrics and events during the execution of an extraction workflow. It provides crucial insights into the performance and reliability of the process.</p>
+<p>While it is used automatically by the <code class="docutils literal notranslate"><span class="pre">WorkflowOrchestrator</span></code>, it can also be used as a standalone tool to track metrics in any custom workflow.</p>
+<section id="core-concepts">
+<h2>Core Concepts<a class="headerlink" href="#core-concepts" title="Link to this heading">¶</a></h2>
+<p>The collector is designed to track several key areas of the extraction pipeline:</p>
+<ul class="simple">
+<li><p><strong>LLM Interaction Health</strong>: Monitors API call failures and errors in processing LLM outputs.</p></li>
+<li><p><strong>Consensus Quality</strong>: Gathers detailed statistics from each consensus run to determine the level of agreement between LLM revisions.</p></li>
+<li><p><strong>Custom Events</strong>: Allows for logging of custom events to trace specific steps or occurrences in your workflow.</p></li>
+<li><p><strong>Error Reporting</strong>: Provides a structured way to log errors that occur during the process.</p></li>
+</ul>
+</section>
+<section id="initialization">
+<h2>Initialization<a class="headerlink" href="#initialization" title="Link to this heading">¶</a></h2>
+<p>The collector can be initialized without any parameters, but you can also provide a custom logger.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">extrai.core</span> <span class="kn">import</span> <span class="n">WorkflowAnalyticsCollector</span>
+
+<span class="c1"># Create a new collector instance</span>
+<span class="n">analytics_collector</span> <span class="o">=</span> <span class="n">WorkflowAnalyticsCollector</span><span class="p">()</span>
+
+<span class="c1"># Or with a custom logger</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;MyCustomLogger&quot;</span><span class="p">)</span>
+<span class="n">analytics_collector_with_logger</span> <span class="o">=</span> <span class="n">WorkflowAnalyticsCollector</span><span class="p">(</span><span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="recording-metrics">
+<h2>Recording Metrics<a class="headerlink" href="#recording-metrics" title="Link to this heading">¶</a></h2>
+<p>The collector provides several methods to record specific events throughout the workflow.</p>
+<p><strong>LLM Interaction</strong></p>
+<p>These methods track the health of LLM API calls and output processing.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># To record a successful API call to the LLM</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_llm_api_call_success</span><span class="p">()</span>
+
+<span class="c1"># To record a failed API call to the LLM</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_llm_api_call_failure</span><span class="p">()</span>
+
+<span class="c1"># To record an error when the LLM output is not valid JSON</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_llm_output_parse_error</span><span class="p">()</span>
+
+<span class="c1"># To record an error when the LLM&#39;s JSON output fails schema validation</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_llm_output_validation_error</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Consensus Run Details</strong></p>
+<p>This method is used to log the outcome of a consensus process. It takes a dictionary of metrics, usually generated by the <code class="docutils literal notranslate"><span class="pre">JSONConsensus</span></code> component.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">consensus_stats</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;revisions_processed&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="s2">&quot;unique_paths_considered&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="s2">&quot;paths_agreed_by_threshold&quot;</span><span class="p">:</span> <span class="mi">45</span><span class="p">,</span>
+    <span class="s2">&quot;paths_resolved_by_conflict_resolver&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="s2">&quot;paths_omitted_due_to_no_consensus_or_resolver_omission&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_consensus_run_details</span><span class="p">(</span><span class="n">consensus_stats</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Custom Events and Errors</strong></p>
+<p>You can log your own custom events and structured errors for debugging or monitoring purposes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Record a custom event with optional details</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_custom_event</span><span class="p">(</span>
+    <span class="s2">&quot;data_preprocessing_started&quot;</span><span class="p">,</span>
+    <span class="n">details</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;document_count&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># Record a structured workflow error</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_workflow_error</span><span class="p">(</span>
+    <span class="n">error_type</span><span class="o">=</span><span class="s2">&quot;DatabaseConnectionError&quot;</span><span class="p">,</span>
+    <span class="n">context</span><span class="o">=</span><span class="s2">&quot;db_writer.save_objects&quot;</span><span class="p">,</span>
+    <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Failed to connect to the primary database.&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Hydration Metrics</strong></p>
+<p>These methods track the process of converting the final JSON into structured <cite>SQLModel</cite> objects.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Record that 5 objects were successfully created</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_hydration_success</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># Record a failure during the hydration process</span>
+<span class="n">analytics_collector</span><span class="o">.</span><span class="n">record_hydration_failure</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="accessing-the-report">
+<h2>Accessing the Report<a class="headerlink" href="#accessing-the-report" title="Link to this heading">¶</a></h2>
+<p>The primary way to access the collected data is through the <code class="docutils literal notranslate"><span class="pre">get_report()</span></code> method, which returns a comprehensive dictionary.</p>
+<p><strong>Usage with WorkflowOrchestrator</strong></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">WorkflowOrchestrator</span></code> automatically handles the collection of analytics. You can access the report after a workflow has been run.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># After running orchestrator.synthesize() or orchestrator.synthesize_and_save()</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">analytics_collector</span><span class="o">.</span><span class="n">get_report</span><span class="p">()</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Example Report Output</strong></p>
+<p>A report provides a detailed summary of the entire workflow.</p>
+<div class="dropdown admonition">
+<p class="admonition-title">Example JSON Report</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;llm_api_call_successes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;llm_api_call_failures&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;llm_api_call_success_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.833</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;llm_output_parse_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;llm_output_validation_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;total_invalid_parsing_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;number_of_consensus_runs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;hydrated_objects_successes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;hydration_failures&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;average_path_agreement_ratio&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.9</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;average_paths_resolved_by_conflict_resolver_ratio&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.06</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;average_paths_omitted_ratio&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.04</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;all_consensus_run_details&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;revisions_processed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;unique_paths_considered&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;paths_agreed_by_threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">45</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;paths_resolved_by_conflict_resolver&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;paths_omitted_due_to_no_consensus_or_resolver_omission&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;custom_events&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;event_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data_preprocessing_started&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;document_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;workflow_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;error_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DatabaseConnectionError&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;context&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;db_writer.save_objects&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Failed to connect to the primary database.&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>By analyzing this report, you can fine-tune your extraction process, monitor costs, and identify potential issues with your LLM prompts or data models.</p>
+</section>
+<section id="interpreting-the-report">
+<h2>Interpreting the Report<a class="headerlink" href="#interpreting-the-report" title="Link to this heading">¶</a></h2>
+<p>By analyzing the reports from this collector, you can diagnose issues and optimize your extraction workflow. For example:</p>
+<ul class="simple">
+<li><p>A high number of <code class="docutils literal notranslate"><span class="pre">llm_output_parse_errors</span></code> might indicate that your LLM is struggling to generate valid JSON, suggesting a need to refine your prompts, simplify your models or activate hierarchical_extractor.</p></li>
+<li><p>A low <code class="docutils literal notranslate"><span class="pre">average_path_agreement_ratio</span></code> from the consensus details can show that your LLM revisions are highly inconsistent, pointing to an ambiguous task, making a more accurate prompt can help.</p></li>
+<li><p>Monitoring custom events can help you trace the flow of data and pinpoint where errors occur.</p></li>
+</ul>
+</section>
+<section id="resetting-the-collector">
+<h2>Resetting the Collector<a class="headerlink" href="#resetting-the-collector" title="Link to this heading">¶</a></h2>
+<p>If you need to reuse a collector instance for multiple, separate runs, you can clear all its stored data using the <code class="docutils literal notranslate"><span class="pre">reset()</span></code> method.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the first workflow</span>
+<span class="k">await</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">synthesize_and_save</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">report1</span> <span class="o">=</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">analytics_collector</span><span class="o">.</span><span class="n">get_report</span><span class="p">()</span>
+
+<span class="c1"># Reset the collector before the next run</span>
+<span class="n">orchestrator</span><span class="o">.</span><span class="n">analytics_collector</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+<span class="c1"># Run the second workflow</span>
+<span class="k">await</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">synthesize_and_save</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">report2</span> <span class="o">=</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">analytics_collector</span><span class="o">.</span><span class="n">get_report</span><span class="p">()</span> <span class="c1"># Contains data only from the second run</span>
+</pre></div>
+</div>
+<p>For a full API reference, see the <a class="reference internal" href="api/extrai.core.html"><span class="doc">llm_consensus_extraction.core package</span></a> documentation.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="llm_providers.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">LLM Providers</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="example_json_generator.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Example JSON Generator</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Elias Thouant
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Analytics Collector</a><ul>
+<li><a class="reference internal" href="#core-concepts">Core Concepts</a></li>
+<li><a class="reference internal" href="#initialization">Initialization</a></li>
+<li><a class="reference internal" href="#recording-metrics">Recording Metrics</a></li>
+<li><a class="reference internal" href="#accessing-the-report">Accessing the Report</a></li>
+<li><a class="reference internal" href="#interpreting-the-report">Interpreting the Report</a></li>
+<li><a class="reference internal" href="#resetting-the-collector">Resetting the Collector</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    </body>
+</html>
