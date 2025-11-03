@@ -38,6 +38,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 html_theme = "furo"
 html_static_path = ["_static"]
 html_logo = "_static/logo.jpg"
+html_favicon = "_static/logo.ico"
 
 add_module_names = False
 
