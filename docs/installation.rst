@@ -7,7 +7,7 @@ You can install the Extrai library from PyPI using pip:
 
 .. code-block:: bash
 
-   pip install extrai
+   pip install extrai-workflow
 
 To install the library for development, clone the repository and install it in editable mode with the `dev` extras:
 

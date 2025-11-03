@@ -154,7 +154,7 @@ graph TD
 Install the library from PyPI:
 
 ```bash
-pip install extrai
+pip install extrai-workflow
 ```
 
 ### ✨ Usage Example
