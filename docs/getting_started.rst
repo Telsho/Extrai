@@ -71,9 +71,8 @@ Next, we configure the LLM client and set up an in-memory SQLite database for th
     # Create an in-memory SQLite database engine
     engine = create_engine("sqlite:///:memory:")
 
-    def reset_database():
-        SQLModel.metadata.drop_all(engine)
-        SQLModel.metadata.create_all(engine)
+    # Leave if you want the tables to be created if they do not exist
+    SQLModel.metadata.create_all(engine)
 
 Step 3: Initialize the Workflow Orchestrator
 --------------------------------------------
@@ -101,7 +100,6 @@ Now, we can feed unstructured text to the orchestrator. The `synthesize_and_save
 
     async def main():
         text = "Gamer Mouse, $85.00, by SwiftClick. Specs: 16000 DPI, RGB Lighting."
-        reset_database()
         with Session(engine) as session:
             await orchestrator.synthesize_and_save(
                 input_strings=[text], db_session=session
