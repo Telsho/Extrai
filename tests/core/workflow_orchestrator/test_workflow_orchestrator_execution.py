@@ -771,7 +771,6 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         )
         mock_rollback.assert_called_once()
 
-
     async def test_synthesize_with_extraction_example_parameters(self):
         """Test different scenarios for extraction_example_object and extraction_example_json."""
         dept1 = DepartmentModel(name="Dept 1")
