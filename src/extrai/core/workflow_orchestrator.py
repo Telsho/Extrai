@@ -256,6 +256,7 @@ class WorkflowOrchestrator:
         input_strings: List[str],
         db_session_for_hydration: Optional[Session],
         extraction_example_json: str = "",
+        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
         custom_extraction_process: str = "",
         custom_extraction_guidelines: str = "",
         custom_final_checklist: str = "",
@@ -267,6 +268,7 @@ class WorkflowOrchestrator:
             input_strings: A list of input strings for data extraction.
             db_session_for_hydration: SQLAlchemy session for the hydrator.
             extraction_example_json: Optional JSON string for few-shot prompting.
+            extraction_example_object: Optional SQLModel object or list of objects to use as example.
             custom_extraction_process: Optional custom instructions for LLM extraction process.
             custom_extraction_guidelines: Optional custom guidelines for LLM extraction.
             custom_final_checklist: Optional custom final checklist for LLM.
@@ -280,6 +282,25 @@ class WorkflowOrchestrator:
         """
         if not input_strings:
             raise ValueError("Input strings list cannot be empty.")
+
+        if extraction_example_object and not extraction_example_json:
+            objects_to_process = (
+                extraction_example_object
+                if isinstance(extraction_example_object, list)
+                else [extraction_example_object]
+            )
+            processed_objects = []
+            for obj in objects_to_process:
+                if isinstance(obj, SQLModel):
+                    processed_objects.append(obj.model_dump(mode="json"))
+                else:
+                    self.logger.warning(
+                        f"Skipping unsupported object type in extraction_example_object: {type(obj)}"
+                    )
+            if processed_objects:
+                extraction_example_json = json.dumps(
+                    processed_objects, default=str, indent=2
+                )
 
         self.logger.info(
             f"Starting synthesis for {self.root_sqlmodel_class.__name__}..."
@@ -524,6 +545,7 @@ class WorkflowOrchestrator:
         input_strings: List[str],
         db_session: Session,
         extraction_example_json: str = "",
+        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
         custom_extraction_process: str = "",
         custom_extraction_guidelines: str = "",
         custom_final_checklist: str = "",
@@ -536,6 +558,7 @@ class WorkflowOrchestrator:
             input_strings=input_strings,
             db_session_for_hydration=db_session,
             extraction_example_json=extraction_example_json,
+            extraction_example_object=extraction_example_object,
             custom_extraction_process=custom_extraction_process,
             custom_extraction_guidelines=custom_extraction_guidelines,
             custom_final_checklist=custom_final_checklist,

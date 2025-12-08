@@ -163,6 +163,7 @@ Once the orchestrator is configured, you can start processing documents using on
    *   ``input_strings`` (``List[str]``): A list of strings, where each string is a document to be processed.
    *   ``db_session_for_hydration`` (``Optional[Session]``): An optional SQLAlchemy session. If provided, the hydrator will use it to resolve relationships. If not, a temporary in-memory session is created.
    *   ``extraction_example_json`` (``str``, optional): A JSON string that provides a few-shot example to the LLM, guiding it to produce a better-structured output. If not provided, the orchestrator will attempt to auto-generate one.
+   *   ``extraction_example_object`` (``Optional[Union[SQLModel, List[SQLModel]]]``, optional): An existing SQLModel object or a list of them to be used as the few-shot example. This is an alternative to providing the example as a raw JSON string.
    *   ``custom_extraction_process`` (``str``, optional): Custom, step-by-step instructions for the LLM on how to perform the extraction.
    *   ``custom_extraction_guidelines`` (``str``, optional): A list of rules or guidelines for the LLM to follow.
    *   ``custom_final_checklist`` (``str``, optional): A final checklist for the LLM to review before finalizing its output.

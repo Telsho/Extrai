@@ -772,5 +772,91 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         mock_rollback.assert_called_once()
 
 
+    async def test_synthesize_with_extraction_example_parameters(self):
+        """Test different scenarios for extraction_example_object and extraction_example_json."""
+        dept1 = DepartmentModel(name="Dept 1")
+        dept2 = DepartmentModel(name="Dept 2")
+
+        test_cases = [
+            {
+                "name": "single_object",
+                "object": dept1,
+                "json_arg": "",
+                "expected_json_in_prepare": lambda j: len(json.loads(j)) == 1
+                and json.loads(j)[0]["name"] == "Dept 1",
+                "expect_warning": False,
+            },
+            {
+                "name": "list_of_objects",
+                "object": [dept1, dept2],
+                "json_arg": "",
+                "expected_json_in_prepare": lambda j: len(json.loads(j)) == 2
+                and json.loads(j)[1]["name"] == "Dept 2",
+                "expect_warning": False,
+            },
+            {
+                "name": "priority_json_over_object",
+                "object": dept1,
+                "json_arg": '[{"name": "Override"}]',
+                "expected_json_in_prepare": lambda j: j == '[{"name": "Override"}]',
+                "expect_warning": False,
+            },
+            {
+                "name": "unsupported_type",
+                "object": ["unsupported"],
+                "json_arg": "",
+                "expected_json_in_prepare": lambda j: j == "",
+                "expect_warning": True,
+            },
+        ]
+
+        for case in test_cases:
+            with self.subTest(case=case["name"]):
+                with (
+                    mock.patch.object(
+                        self.orchestrator,
+                        "_prepare_extraction_example",
+                        new_callable=AsyncMock,
+                    ) as mock_prepare,
+                    mock.patch.object(
+                        self.orchestrator,
+                        "_execute_standard_extraction",
+                        AsyncMock(return_value=[]),
+                    ),
+                    mock.patch.object(
+                        self.orchestrator,
+                        "_hydrate_results",
+                        mock.MagicMock(return_value=[]),
+                    ),
+                    mock.patch.object(
+                        self.orchestrator.logger, "warning"
+                    ) as mock_logger_warning,
+                ):
+                    mock_prepare.return_value = "{}"
+
+                    await self.orchestrator.synthesize(
+                        input_strings=["test"],
+                        db_session_for_hydration=self.db_session,
+                        extraction_example_object=case["object"],
+                        extraction_example_json=case["json_arg"],
+                    )
+
+                    # Verify warning
+                    if case["expect_warning"]:
+                        mock_logger_warning.assert_called()
+                        args, _ = mock_logger_warning.call_args
+                        self.assertIn("Skipping unsupported object type", args[0])
+                    else:
+                        mock_logger_warning.assert_not_called()
+
+                    # Verify _prepare_extraction_example argument
+                    args, _ = mock_prepare.call_args
+                    actual_json = args[0]
+                    self.assertTrue(
+                        case["expected_json_in_prepare"](actual_json),
+                        f"Failed for case {case['name']}: actual json {actual_json}",
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()

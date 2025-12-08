@@ -115,6 +115,19 @@ Now, we can feed unstructured text to the orchestrator. The `synthesize_and_save
     if __name__ == "__main__":
         asyncio.run(main())
 
+.. tip::
+
+    **Improving Results with Examples**: If you have existing data (e.g., a "Product" object fetched from your database), you can pass it to the orchestrator to help the LLM understand the output format. Use the `extraction_example_object` parameter in `synthesize_and_save`:
+
+    .. code-block:: python
+
+       # existing_product is a SQLModel instance
+       await orchestrator.synthesize_and_save(
+           input_strings=[text],
+           db_session=session,
+           extraction_example_object=existing_product
+       )
+
 Step 5: See the Results
 -----------------------
 
