@@ -16,20 +16,37 @@ Welcome to Extrai's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: How-to Guides
+   :caption: Features
 
-   how_to/generate_sql_model
-   how_to/generate_example_json
-   how_to/customize_extraction_prompts
-   how_to/handle_complex_data_with_hierarchical_extraction
-   how_to/using_multiple_llm_providers
+   features/entity_counting
+   features/structured_output
+   batch_processing_integration
 
 .. toctree::
    :maxdepth: 2
    :caption: Core Concepts
 
    concepts/architecture_overview
-   concepts/consensus_mechanism 
+   concepts/consensus_mechanism
+   concepts/result_processing
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Topics
+
+   advanced/batch_deep_dive
+   advanced/error_handling
+
+.. toctree::
+   :maxdepth: 2
+   :caption: How-to Guides
+
+   how_to/generate_sql_model
+   how_to/generate_example_json
+   how_to/customize_extraction_prompts
+   how_to/handle_complex_data_with_hierarchical_extraction
+   how_to/implement_custom_conflict_resolvers
+   how_to/using_multiple_llm_providers
 
 .. toctree::
    :maxdepth: 2

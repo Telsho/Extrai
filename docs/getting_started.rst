@@ -19,9 +19,9 @@ Prerequisites
 
 Before you begin, make sure you have:
 
-1.  **Python 3.8+** installed.
+1.  **Python 3.10+** installed.
 2.  The `extrai` library installed (see :ref:`installation`).
-3.  An **API key** for an LLM provider (e.g., Gemini, OpenAI).
+3.  An **API key** for a supported LLM provider (Google Gemini, OpenAI, DeepSeek, etc.).
 
 Step 1: Define Your Data Models
 -------------------------------
