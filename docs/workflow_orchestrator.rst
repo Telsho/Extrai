@@ -196,13 +196,13 @@ Once the orchestrator is configured, you can start processing documents using on
 
     .. code-block:: python
 
-        # Non-blocking submission (returns BatchJobStatus)
-        status = await orchestrator.synthesize_batch(
+        # Non-blocking submission (returns str)
+        batch_id = await orchestrator.synthesize_batch(
             input_strings=["..."],
             db_session=db_session,
             wait_for_completion=False
         )
-        print(f"Batch submitted: {status.job_id}")
+        print(f"Batch submitted: {batch_id}")
 
         # Blocking until complete (returns BatchProcessResult)
         result = await orchestrator.synthesize_batch(
@@ -218,13 +218,60 @@ Once the orchestrator is configured, you can start processing documents using on
     *   ``db_session`` (``Optional[Session]``): A database session (SQLModel/SQLAlchemy) used for initial counting and potentially for result hydration.
     *   ``wait_for_completion`` (``bool``, default ``False``):
         *   If ``True``, the method polls the batch status until completion (or error). It handles multi-stage hierarchical batches automatically. **Returns**: ``BatchProcessResult`` (containing hydrated objects).
-        *   If ``False``, it submits the batch to the LLM provider and returns immediately. **Returns**: ``BatchJobStatus`` (containing the job ID and initial status).
+        *   If ``False``, it submits the batch to the LLM provider and returns immediately. **Returns**: ``str`` (the batch job ID).
     *   ``count_entities`` (``bool``, default ``False``): If True, performs an initial pass to count entities before extraction.
     *   ``custom_counting_context`` (``str``, optional): Custom instructions or context specifically for the entity counting phase.
     *   ... (other parameters similar to ``synthesize``)
 
-``synthesize_batch_and_save()``
-    Combines batch submission with persistence. When ``wait_for_completion=True``, it will automatically save the results to the database upon completion.
+``create_continuation_batch()``
+    Creates a new batch job that continues from a specific step of a previous batch. This is useful for retrying failed steps or extending a workflow without re-running earlier successful steps.
+
+    .. code-block:: python
+
+        # Continue from step 2 (0-indexed) of a previous batch
+        new_batch_id = await orchestrator.create_continuation_batch(
+            original_batch_id="prev_batch_id",
+            db_session=db_session,
+            start_from_step_index=2,
+            wait_for_completion=True
+        )
+
+    **Parameters:**
+
+    *   ``original_batch_id`` (``str``): The ID of the batch to continue from.
+    *   ``start_from_step_index`` (``int``): The hierarchical step index to start the new batch from. Steps before this index will be copied from the original batch.
+    *   ``wait_for_completion`` (``bool``, default ``False``): Same behavior as in ``synthesize_batch``.
+    *   (Other parameters allow overriding configuration for the new batch)
+
+``monitor_batch_job()``
+    Polls the status of an existing batch job until it completes. This method handles multi-stage workflows (like counting -> extraction, or hierarchical steps) by automatically detecting phase transitions and submitting subsequent jobs.
+
+    .. code-block:: python
+
+        # Resume monitoring a batch (e.g., after script restart)
+        result = await orchestrator.monitor_batch_job(
+            root_batch_id="existing_batch_id",
+            db_session=db_session
+        )
+
+    **Parameters:**
+
+    *   ``root_batch_id`` (``str``): The ID of the batch to monitor.
+    *   ``poll_interval`` (``int``, default ``60``): Seconds to wait between status checks.
+
+``get_batch_status()``
+    Retrieves the current status of a batch job, checking with the LLM provider if necessary.
+
+    .. code-block:: python
+
+        status = await orchestrator.get_batch_status("batch_id", db_session)
+
+``process_batch()``
+    Processes a completed batch job. This downloads results, runs consensus, hydrates objects, and persists them to the database. It is typically called automatically by ``monitor_batch_job``, but can be used manually for non-blocking workflows.
+
+    .. code-block:: python
+
+        result = await orchestrator.process_batch("batch_id", db_session)
 
 Concise Usage Example
 ---------------------

@@ -1,13 +1,13 @@
 Intro
 --------
 
-With `extrai`, you can extract data from text documents with LLMs, which will be formatted into a given `SQLModel` and registered in your database.
+`extrai` extracts data from text documents using LLMs, formatting the output into a given `SQLModel` and registering it in a database.
 
-The core of the library is its :ref:`Consensus Mechanism <consensus_mechanism>`. We make the same request multiple times, using the same or different providers, and then select the values that meet a certain threshold.
+The library utilizes a :ref:`Consensus Mechanism <consensus_mechanism>` to ensure accuracy. It makes the same request multiple times, using the same or different providers, and then selects the values that meet a configured threshold.
 
 `extrai` also has other features, like :ref:`generating SQLModels <sqlmodel_generator>` from a prompt and documents, and :ref:`generating few-shot examples <example_json_generator>`. For complex, nested data, the library offers :ref:`Hierarchical Extraction <how_to_handle_complex_data_with_hierarchical_extraction>`, breaking down the extraction into manageable, hierarchical steps. It also includes :ref:`built-in analytics <analytics_collector>` to monitor performance and output quality.
 
-Worflow Overview
+Workflow Overview
 ----------------------
 
 The library is built around a few key components that work together to manage the extraction workflow. The following diagram illustrates the high-level workflow (see :ref:`Architecture Overview <architecture_overview>` for more details):
