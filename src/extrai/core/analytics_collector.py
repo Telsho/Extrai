@@ -22,6 +22,34 @@ class WorkflowAnalyticsCollector:
         self._consensus_run_details_list: List[Dict[str, Any]] = []
         self._custom_events: List[Dict[str, Any]] = []
         self._workflow_errors: List[Dict[str, Any]] = []
+        self._llm_output_validations_errors_details: List[Dict[str, Any]] = []
+        self._total_llm_cost: float = 0.0
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+        self._llm_cost_details: List[Dict[str, Any]] = []
+
+    def record_llm_usage(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        model: str,
+        cost: float = 0.0,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        """Records the token usage and optional cost of an LLM call."""
+        self._total_input_tokens += input_tokens
+        self._total_output_tokens += output_tokens
+        self._total_llm_cost += cost
+
+        usage_details = {
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": cost,
+        }
+        if details:
+            usage_details.update(details)
+        self._llm_cost_details.append(usage_details)
 
     def record_llm_api_call_success(self):
         """Increments the count of successful LLM API calls."""
@@ -35,9 +63,10 @@ class WorkflowAnalyticsCollector:
         """Increments the count of LLM output parsing errors."""
         self._llm_output_parse_errors += 1
 
-    def record_llm_output_validation_error(self):
+    def record_llm_output_validation_error(self, details=None):
         """Increments the count of LLM output validation errors."""
         self._llm_output_validation_errors += 1
+        self._llm_output_validations_errors_details.append(details)
 
     def record_hydration_success(self, count: int):
         """Records the number of successfully hydrated objects."""
@@ -99,6 +128,21 @@ class WorkflowAnalyticsCollector:
     def llm_output_validation_errors(self) -> int:
         """Returns the total count of LLM output validation errors."""
         return self._llm_output_validation_errors
+
+    @property
+    def total_llm_cost(self) -> float:
+        """Returns the total cost of LLM calls."""
+        return self._total_llm_cost
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Returns the total input tokens used."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Returns the total output tokens used."""
+        return self._total_output_tokens
 
     @property
     def number_of_consensus_runs(self) -> int:
@@ -201,6 +245,9 @@ class WorkflowAnalyticsCollector:
             "number_of_consensus_runs": self.number_of_consensus_runs,
             "hydrated_objects_successes": self._hydrated_objects_successes,
             "hydration_failures": self._hydration_failures,
+            "total_llm_cost": self._total_llm_cost,
+            "total_input_tokens": self._total_input_tokens,
+            "total_output_tokens": self._total_output_tokens,
         }
         if self._consensus_run_details_list:
             report.update(
@@ -225,6 +272,10 @@ class WorkflowAnalyticsCollector:
             report["custom_events"] = self._custom_events
         if self._workflow_errors:
             report["workflow_errors"] = self._workflow_errors
+        if self._llm_output_validations_errors_details:
+            report["llm_output_validations_errors_details"] = self._llm_output_validations_errors_details
+        if self._llm_cost_details:
+            report["llm_cost_details"] = self._llm_cost_details
 
         return report
 
@@ -265,3 +316,7 @@ class WorkflowAnalyticsCollector:
         self._consensus_run_details_list = []
         self._custom_events = []
         self._workflow_errors = []
+        self._total_llm_cost = 0.0
+        self._total_input_tokens = 0
+        self._total_output_tokens = 0
+        self._llm_cost_details = []
