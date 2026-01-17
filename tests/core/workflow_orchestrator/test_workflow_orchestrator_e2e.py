@@ -17,9 +17,8 @@ from tests.core.helpers.mock_llm_clients import MockE2ELLMClient
 
 
 class TestWorkflowOrchestratorE2E(unittest.IsolatedAsyncioTestCase):
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def setUp(self, mock_generate_llm_schema, mock_discover_sqlmodels):
+    @mock.patch("extrai.core.model_registry.SchemaInspector")
+    def setUp(self, MockSchemaInspector):
         self.mock_llm_client = MockE2ELLMClient()
         self.engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(self.engine)
@@ -38,8 +37,10 @@ class TestWorkflowOrchestratorE2E(unittest.IsolatedAsyncioTestCase):
             {"schema_for_prompt_e2e": "mock_e2e_prompt_schema"}
         )
 
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodels_e2e
-        mock_generate_llm_schema.return_value = self.mock_prompt_llm_schema_str_e2e
+        # Configure the mock inspector instance
+        mock_inspector = MockSchemaInspector.return_value
+        mock_inspector.discover_sqlmodels_from_root.return_value = self.mock_discovered_sqlmodels_e2e
+        mock_inspector.generate_llm_schema_from_models.return_value = self.mock_prompt_llm_schema_str_e2e
 
     def tearDown(self):
         self.db_session.close()

@@ -116,11 +116,11 @@ class TestJSONConsensus(unittest.TestCase):
 
         # Test when most common does NOT meet threshold
         consensus_processor_strict_threshold = JSONConsensus(
-            consensus_threshold=0.7,  # Requires 3/3 for 3 revisions (0.7*3=2.1, so need 3)
+            consensus_threshold=0.8,  # Requires 3/3 for 3 revisions (0.8*3=2.4, so need 3)
             conflict_resolver=prefer_most_common_resolver,
         )
-        # color: red (2/3), blue (1/3) -> red is most common but 2/3 is not > 0.7
-        # value: 10 (2/3), 20 (1/3) -> 10 is most common but 2/3 is not > 0.7
+        # color: red (2/3), blue (1/3) -> red is most common but 2/3 is not > 0.8
+        # value: 10 (2/3), 20 (1/3) -> 10 is most common but 2/3 is not > 0.8
         # prefer_most_common_resolver will still pick them.
         expected_conflict_resolved = {"color": "red", "value": 10}
         consensus_obj_strict, analytics_strict = (
@@ -129,7 +129,7 @@ class TestJSONConsensus(unittest.TestCase):
         self.assertEqual(consensus_obj_strict, expected_conflict_resolved)
         self.assertEqual(
             analytics_strict["paths_agreed_by_threshold"], 0
-        )  # None met the 0.7 threshold
+        )  # None met the 0.8 threshold
         self.assertEqual(
             analytics_strict["paths_resolved_by_conflict_resolver"], 2
         )  # Both resolved
@@ -577,7 +577,7 @@ class TestJSONConsensus(unittest.TestCase):
         # resolution logic applied, where the most common value is chosen even if
         # the consensus threshold is not met.
         consensus_processor = JSONConsensus(
-            consensus_threshold=0.7,  # High threshold to force conflict
+            consensus_threshold=0.8,  # High threshold to force conflict
             conflict_resolver=default_conflict_resolver,  # Default would omit
         )
         revisions = [
@@ -585,8 +585,8 @@ class TestJSONConsensus(unittest.TestCase):
             {"_type": "A", "_temp_id": "id2", "other": "y"},
             {"_type": "B", "_temp_id": "id1", "other": "z"},
         ]
-        # _type: A (2/3), B (1/3). 2/3 = 0.66 < 0.7. Conflict.
-        # _temp_id: id1 (2/3), id2 (1/3). 2/3 = 0.66 < 0.7. Conflict.
+        # _type: A (2/3), B (1/3). 2/3 = 0.66 < 0.8. Conflict.
+        # _temp_id: id1 (2/3), id2 (1/3). 2/3 = 0.66 < 0.8. Conflict.
         # other: x,y,z all 1/3. Conflict.
         # Expected: _type and _temp_id are resolved to most common, 'other' is omitted.
         expected = {"_type": "A", "_temp_id": "id1"}

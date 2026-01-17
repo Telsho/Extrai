@@ -76,6 +76,10 @@ def make_json_str(data: Any) -> str:
         ),
         # Unwrapping a non-dict from a single key
         ({"DynamicKey": "not_a_dict"}, "not_a_dict"),
+        # Single dict in list wrapped with priority key
+        ([{"result": {"name": "test"}}], {"name": "test"}),
+        # Single dict in list wrapped with priority key containing priority key
+        ([{"result": {"data": {"name": "test"}}}], {"name": "test"}),
     ],
 )
 def test_unwrap_llm_output(input_data, expected_output):
@@ -394,3 +398,15 @@ def test_process_and_validate_raw_json_schema_validation_fails():
         process_and_validate_raw_json(
             raw_content, "test_schema_fail", target_json_schema=schema
         )
+
+
+def test_process_and_validate_raw_json_no_unwrap():
+    """Tests that attempt_unwrap=False prevents unwrapping."""
+    # A wrapped structure that would normally be unwrapped
+    raw_content = make_json_str({"result": {"key": "value"}})
+    
+    # With attempt_unwrap=False, it should return the raw dict
+    result = process_and_validate_raw_json(
+        raw_content, "test_no_unwrap", attempt_unwrap=False
+    )
+    assert result == {"result": {"key": "value"}}

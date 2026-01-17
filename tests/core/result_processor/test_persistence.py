@@ -6,7 +6,7 @@ import logging
 from sqlalchemy.exc import SQLAlchemyError
 
 # Adjust the import path based on your project structure
-from extrai.core.db_writer import (
+from extrai.core.result_processor import (
     persist_objects,
     DatabaseWriterError,
 )

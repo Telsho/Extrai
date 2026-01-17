@@ -1,4 +1,6 @@
 import unittest
+import unittest.mock
+import logging
 import uuid
 import sys
 import io
@@ -13,7 +15,7 @@ from sqlmodel import (
     select,
 )
 
-from extrai.core.sqlalchemy_hydrator import SQLAlchemyHydrator
+from extrai.core.result_processor import SQLAlchemyHydrator
 
 
 # 1. Setup SQLModel Models
@@ -81,7 +83,8 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
         self.engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(self.engine)
         self.session = SQLModelSession(self.engine)
-        self.hydrator = SQLAlchemyHydrator(self.session)
+        self.test_logger = logging.getLogger("test_logger")
+        self.hydrator = SQLAlchemyHydrator(self.session, logger=self.test_logger)
         # Correctly define the map with SQLModel classes
         self.model_sqlmodel_map: Dict[str, Type[SQLModel]] = {
             "author": Author,
@@ -302,17 +305,23 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
                 "author_ref_id": "non_existent_author",
             }
         ]
-        with self.captured_stdout() as captured:
+        with unittest.mock.patch.object(self.test_logger, "warning") as mock_warning:
             instances = self._hydrate_and_query(entities_list)
 
-        self.assertEqual(len(instances), 1)
-        book = instances[0]
-        self.assertEqual(book.title, "Book with Broken Link")
-        self.assertIsNone(book.author)
-        self.assertIn(
-            "Warning: Referenced _temp_id 'non_existent_author' for relation 'author'",
-            captured.getvalue(),
-        )
+            self.assertEqual(len(instances), 1)
+            book = instances[0]
+            self.assertEqual(book.title, "Book with Broken Link")
+            self.assertIsNone(book.author)
+            
+            self.assertTrue(mock_warning.called)
+            # Check if any call contains the expected message
+            found = False
+            for call in mock_warning.call_args_list:
+                args, _ = call
+                if "Referenced _temp_id 'non_existent_author' for relation 'author'" in args[0]:
+                    found = True
+                    break
+            self.assertTrue(found, "Expected warning message not found in logger calls")
 
     def test_hydrate_null_ref_id(self):
         entities_list = [
@@ -484,16 +493,21 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
                 "books_ref_ids": "not_a_list",
             },
         ]
-        with self.captured_stdout() as captured:
+        with unittest.mock.patch.object(self.test_logger, "warning") as mock_warning:
             instances = self._hydrate_and_query(entities_list)
 
-        author = next((i for i in instances if isinstance(i, Author)), None)
-        self.assertIsNotNone(author)
-        self.assertEqual(len(author.books), 0)
-        self.assertIn(
-            "Warning: Value for 'books_ref_ids' on instance 'auth_invalid_ref_ids' is not a list",
-            captured.getvalue(),
-        )
+            author = next((i for i in instances if isinstance(i, Author)), None)
+            self.assertIsNotNone(author)
+            self.assertEqual(len(author.books), 0)
+            
+            self.assertTrue(mock_warning.called)
+            found = False
+            for call in mock_warning.call_args_list:
+                args, _ = call
+                if "Value for 'books_ref_ids' on instance 'auth_invalid_ref_ids' is not a list" in args[0]:
+                    found = True
+                    break
+            self.assertTrue(found, "Expected warning message not found in logger calls")
 
     def test_hydrate_ref_ids_list_with_invalid_item_type_or_missing_ref(self):
         with self.subTest("invalid_item_type"):
@@ -506,12 +520,17 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
                 },
                 {"_type": "book", "_temp_id": "book1", "title": "Book 1"},
             ]
-            with self.captured_stdout() as captured:
+            with unittest.mock.patch.object(self.test_logger, "warning") as mock_warning:
                 self._hydrate_and_query(entities_list)
-            self.assertIn(
-                "Warning: Referenced _temp_id '123' in list for relation 'books' on instance 'auth1' (type: author) not found or invalid type.",
-                captured.getvalue(),
-            )
+                
+                self.assertTrue(mock_warning.called)
+                found = False
+                for call in mock_warning.call_args_list:
+                    args, _ = call
+                    if "Referenced _temp_id '123' in list for relation 'books' on instance 'auth1' (type: author) not found or invalid type." in args[0]:
+                        found = True
+                        break
+                self.assertTrue(found, "Expected warning message not found in logger calls")
 
         with self.subTest("missing_ref"):
             entities_list = [
@@ -523,12 +542,17 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
                 },
                 {"_type": "book", "_temp_id": "book2", "title": "Book 2"},
             ]
-            with self.captured_stdout() as captured:
+            with unittest.mock.patch.object(self.test_logger, "warning") as mock_warning:
                 self._hydrate_and_query(entities_list)
-            self.assertIn(
-                "Warning: Referenced _temp_id 'non_existent' in list for relation 'books' on instance 'auth2' (type: author) not found or invalid type.",
-                captured.getvalue(),
-            )
+                
+                self.assertTrue(mock_warning.called)
+                found = False
+                for call in mock_warning.call_args_list:
+                    args, _ = call
+                    if "Referenced _temp_id 'non_existent' in list for relation 'books' on instance 'auth2' (type: author) not found or invalid type." in args[0]:
+                        found = True
+                        break
+                self.assertTrue(found, "Expected warning message not found in logger calls")
 
     def test_no_pk_coverage(self):
         """
