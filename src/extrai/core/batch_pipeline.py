@@ -42,9 +42,13 @@ class BatchPipeline:
         
         self.client_rotator = ClientRotator(llm_client)
         self.prompt_builder = PromptBuilder(model_registry, logger)
+        c_client = counting_llm_client or llm_client
+        if isinstance(c_client, list):
+            c_client = c_client[0]
+            
         self.entity_counter = EntityCounter(
             model_registry, 
-            counting_llm_client or llm_client, 
+            c_client, 
             config, 
             analytics_collector, 
             logger
@@ -189,10 +193,10 @@ class BatchPipeline:
         self.logger.info(f"Created continuation batch {new_batch_id} from {original_batch_id}, starting at step {start_from_step_index}")
         
         # Determine starting phase
-        # If counting is enabled and we are starting from step 0, we must run the counting phase.
-        # If starting from step > 0, we assume counting is done (and descriptions copied above).
-        if new_config.get("count_entities") and start_from_step_index == 0:
-            await self._submit_counting_phase(new_context, db_session)
+        # If counting is enabled, we start with counting phase for the starting step
+        if new_config.get("count_entities"):
+            step_idx = start_from_step_index if new_config.get("hierarchical") else 0
+            await self._submit_counting_phase(new_context, db_session, step_index=step_idx)
         elif new_config.get("hierarchical"):
             await self._submit_extraction_phase(new_context, db_session, step_index=start_from_step_index)
         else:
@@ -220,9 +224,9 @@ class BatchPipeline:
             input_strings, model_names, custom_counting_context
         )
         
-        requests = self._create_batch_requests(system_prompt, user_prompt, num_revisions=1)
+        client = self.entity_counter.llm_client
+        requests = self._create_batch_requests(system_prompt, user_prompt, num_revisions=1, override_client=client)
         
-        client = self.client_rotator.get_next_client()
         batch_job = await client.create_batch_job(requests)
         provider_batch_id = batch_job.id if hasattr(batch_job, 'id') else str(batch_job)
         
@@ -306,7 +310,12 @@ class BatchPipeline:
             return context.status
         
         try:
-            client = self.client_rotator.get_next_client()
+            # Determine client based on phase
+            if context.status in [BatchJobStatus.COUNTING_SUBMITTED, BatchJobStatus.COUNTING_PROCESSING]:
+                client = self.entity_counter.llm_client
+            else:
+                client = self.client_rotator.get_next_client()
+                
             batch_job = await client.retrieve_batch_job(context.current_batch_id)
             new_provider_status = self._map_provider_status(batch_job.status)
             
@@ -357,7 +366,8 @@ class BatchPipeline:
 
     async def _process_counting_completion(self, context: BatchJobContext, db_session: Session) -> BatchProcessResult:
         try:
-            client = self.client_rotator.get_next_client()
+            # Use counting client
+            client = self.entity_counter.llm_client
             results_content = await client.retrieve_batch_results(context.current_batch_id)
             
             # Determine expected models for validation
@@ -584,10 +594,11 @@ class BatchPipeline:
         system_prompt: str, 
         user_prompt: str,
         json_schema: Optional[Dict] = None,
-        num_revisions: Optional[int] = None
+        num_revisions: Optional[int] = None,
+        override_client: Optional[BaseLLMClient] = None
     ) -> List[Dict]:
         requests = []
-        client = self.client_rotator.current_client
+        client = override_client or self.client_rotator.current_client
         revisions = num_revisions if num_revisions is not None else self.config.num_llm_revisions
         
         for i in range(revisions):
