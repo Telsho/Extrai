@@ -8,7 +8,6 @@ from sqlmodel import SQLModel, create_engine, Session as SQLModelSession
 from extrai.core.workflow_orchestrator import WorkflowOrchestrator
 
 
-
 from tests.core.helpers.orchestrator_test_models import DepartmentModel, EmployeeModel
 from tests.core.helpers.mock_llm_clients import (
     MockLLMClientForWorkflow as MockLLMClient,
