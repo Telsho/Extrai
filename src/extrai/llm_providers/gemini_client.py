@@ -144,7 +144,7 @@ class GeminiClient(GenericOpenAIClient):
                 generation_config["responseMimeType"] = "application/json"
                 if "json_schema" in response_format and "schema" in response_format["json_schema"]:
                     raw_schema = response_format["json_schema"]["schema"]
-                    generation_config["responseSchema"] = self._sanitize_schema_for_gemini(raw_schema)
+                    generation_config["responseJsonSchema"] = self._sanitize_schema_for_gemini(raw_schema)
             elif response_format.get("type") == "json_object":
                 generation_config["responseMimeType"] = "application/json"
 
