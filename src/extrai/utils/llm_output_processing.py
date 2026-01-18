@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Type, Optional, Union
+from typing import Any, Dict, Type, Optional, Union, Tuple
 
 from extrai.core.analytics_collector import WorkflowAnalyticsCollector
 from sqlmodel import SQLModel
@@ -31,25 +31,53 @@ def _filter_special_fields_for_validation(data: Dict[str, Any]) -> Dict[str, Any
     }
 
 
+def _unwrap_priority_keys(data: Any) -> Tuple[Any, bool]:
+    """
+    Recursively unwraps priority keys (result, data, etc.) from a dictionary.
+    Returns a tuple (unwrapped_data, was_unwrapped).
+    """
+    if isinstance(data, dict):
+        if "_type" in data:
+            return data, False
+        for key in ["result", "data", "results", "entities"]:
+            if key in data:
+                # Found a priority key. Unwrap it and recurse.
+                val, _ = _unwrap_priority_keys(data[key])
+                return val, True
+    return data, False
+
+
 def _unwrap_llm_output(data: Any) -> Any:
     """
     Unwraps nested data from LLM JSON outputs.
     It searches for a primary data payload, which could be a list or a dictionary,
     within common wrapping structures like `{"result": [...]}` or `{"data": [...]}`.
+    Recursively unwraps priority keys, but checks for single-key fallback only at the top level
+    if no priority keys were found.
     """
-    if isinstance(data, dict):
-        # Prioritize keys that are likely to contain the main payload.
-        for key in ["result", "data", "results", "entities"]:
-            if key in data:
-                return data[key]
+    # 1. Handle list wrapper (special case where a list contains a single wrapper dict)
+    if isinstance(data, list) and len(data) == 1:
+        inner = data[0]
+        if isinstance(inner, dict) and "_type" not in inner:
+            # Check if inner has priority keys
+            val, found = _unwrap_priority_keys(inner)
+            if found:
+                return val
 
-        # If no priority key is found, and there's only one key,
-        # return the value associated with that key.
+    # 2. Try to unwrap priority keys recursively
+    val, found = _unwrap_priority_keys(data)
+    if found:
+        return val
+
+    # 3. If no priority keys found, try single-key fallback (once, non-recursive)
+    if isinstance(data, dict):
+        if "_type" in data:
+            return data
+
         if len(data) == 1:
             return next(iter(data.values()))
 
-    # If the data is not a dictionary or no specific unwrapping rule applies,
-    # return the data as is.
+    # 4. Return data as is
     return data
 
 
@@ -58,6 +86,7 @@ def process_and_validate_llm_output(
     model_schema_map: Dict[str, Type[SQLModel]],
     revision_info_for_error: str = "LLM Output",
     analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+    default_model_type: Optional[str] = None,
 ) -> list[Dict[str, Any]]:
     """
     Parses raw LLM JSON content, unwraps structures, and validates a list of objects
@@ -100,6 +129,10 @@ def process_and_validate_llm_output(
             )
 
         type_key = item.get("_type")
+        if not type_key and default_model_type:
+            type_key = default_model_type
+            item["_type"] = type_key  # Inject it for consistency
+
         if not type_key:
             raise LLMOutputValidationError(
                 f"{revision_info_for_error}: Missing '_type' key in object.", item
@@ -139,6 +172,7 @@ def process_and_validate_raw_json(
     raw_llm_content: str,
     revision_info_for_error: str,
     target_json_schema: Optional[Dict[str, Any]] = None,
+    attempt_unwrap: bool = True,
 ) -> Union[Dict[str, Any], list[Dict[str, Any]]]:
     """
     Parses, unwraps, and validates raw JSON content against a schema.
@@ -147,6 +181,7 @@ def process_and_validate_raw_json(
         raw_llm_content: The raw string from the LLM.
         revision_info_for_error: A string for error reporting.
         target_json_schema: An optional JSON schema for validation.
+        attempt_unwrap: Whether to attempt unwrapping the JSON content. Defaults to True.
 
     Returns:
         The validated dictionary or list of dictionaries.
@@ -170,7 +205,10 @@ def process_and_validate_raw_json(
             original_exception=e,
         )
 
-    unwrapped_data = _unwrap_llm_output(parsed_json)
+    if attempt_unwrap:
+        unwrapped_data = _unwrap_llm_output(parsed_json)
+    else:
+        unwrapped_data = parsed_json
 
     if not isinstance(unwrapped_data, (dict, list)):
         raise LLMOutputParseError(

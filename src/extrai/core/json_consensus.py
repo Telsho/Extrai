@@ -2,7 +2,7 @@
 import logging
 import math
 from collections import Counter
-from typing import List, Dict, Any, Callable, Optional, Union, Tuple
+from typing import List, Dict, Any, Optional, Union, Tuple
 from extrai.utils.flattening_utils import (
     flatten_json,
     unflatten_json,
@@ -12,6 +12,12 @@ from extrai.utils.flattening_utils import (
     JSONArray,
     FlattenedJSON,
 )
+from extrai.core.conflict_resolvers import (
+    ConflictResolutionStrategy,
+    default_conflict_resolver,
+    prefer_most_common_resolver,
+    levenshtein_similarity,
+)
 
 # Sentinel value to indicate that no consensus was reached for a path.
 _NO_CONSENSUS = object()
@@ -19,39 +25,11 @@ _NO_CONSENSUS = object()
 # Define a type for a list of JSON revisions
 JSONRevisions = List[Union[JSONObject, JSONArray]]
 
-# Define conflict resolution strategies
-ConflictResolutionStrategy = Callable[[Path, List[JSONValue]], Optional[JSONValue]]
-
-
-def default_conflict_resolver(
-    path: Path, values: List[JSONValue]
-) -> Optional[JSONValue]:
-    """
-    Default conflict resolution: if no consensus, omit the field.
-    (Or choose the most common, even if below threshold, or raise error - configurable)
-    For this default, we'll omit.
-    """
-    # print(f"Conflict at path {path}: Values {values}. No consensus achieved. Omitting.")
-    return None
-
-
-def prefer_most_common_resolver(
-    _path: Path, values: List[JSONValue]
-) -> Optional[JSONValue]:
-    """
-    Conflict resolution: prefer the most common value even if it doesn't meet the threshold.
-    If multiple values have the same highest frequency, it picks one arbitrarily (based on Counter behavior).
-    """
-    if not values:
-        return None
-    count = Counter(values)
-    most_common_value, _ = count.most_common(1)[0]
-    return most_common_value
-
 
 class JSONConsensus:
     """
     Calculates a consensus JSON object from multiple JSON revisions.
+    Supports weighted consensus based on global revision similarity.
     """
 
     def __init__(
@@ -68,14 +46,9 @@ class JSONConsensus:
         Args:
             consensus_threshold: The minimum proportion of revisions that must agree on a
                                  value for it to be included in the consensus.
-                                 E.g., 0.5 means more than 50% agreement needed.
-                                 A value of 0.0 would mean any single occurrence is enough (less useful).
-                                 A value of 1.0 would mean unanimous agreement is required.
             conflict_resolver: A function to call when no value for a path meets the
-                               consensus threshold. It takes the path and list of
-                               conflicting values and returns a single value or None.
-                               If None, a default resolver that omits the field is used.
-            logger: An optional logger instance. If not provided, a default logger is created.
+                               consensus threshold.
+            logger: An optional logger instance.
         """
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         if not logger:
@@ -86,7 +59,7 @@ class JSONConsensus:
                 "Extrai threshold must be between 0.0 (exclusive) and 1.0 (inclusive)."
             )
         self.consensus_threshold = consensus_threshold
-        self.conflict_resolver = conflict_resolver
+        self.conflict_resolver = conflict_resolver or default_conflict_resolver
 
     def get_consensus(
         self, revisions: JSONRevisions
@@ -97,17 +70,29 @@ class JSONConsensus:
         if not revisions:
             return {}, analytics
 
-        path_to_values = self._aggregate_paths(revisions)
-        analytics["unique_paths_considered"] = len(path_to_values)
+        # Calculate revision weights based on global similarity (Jaccard-like on flattened fields)
+        revision_weights = self._calculate_revision_weights(revisions)
+        analytics["revision_weights"] = revision_weights
 
+        # Aggregate paths, keeping track of which revision provided which value
+        path_to_values_with_indices = self._aggregate_paths(revisions)
+        analytics["unique_paths_considered"] = len(path_to_values_with_indices)
+
+        # Build consensus
         consensus_flat_json = self._build_consensus_json(
-            path_to_values, num_revisions, analytics
+            path_to_values_with_indices, num_revisions, analytics, revision_weights
         )
         analytics["paths_in_consensus_output"] = len(consensus_flat_json)
 
         final_consensus_object = self._build_final_object(
             consensus_flat_json, revisions
         )
+
+        if analytics["unique_paths_considered"] > 0:
+            analytics["consensus_confidence_score"] = (
+                analytics["paths_agreed_by_threshold"]
+                / analytics["unique_paths_considered"]
+            )
 
         return final_consensus_object, analytics
 
@@ -119,31 +104,114 @@ class JSONConsensus:
             "paths_agreed_by_threshold": 0,
             "paths_resolved_by_conflict_resolver": 0,
             "paths_omitted_due_to_no_consensus_or_resolver_omission": 0,
+            "consensus_confidence_score": 0.0,
+            "average_string_similarity": 0.0,  # Average Levenshtein ratio (1.0 = identical)
         }
 
-    def _aggregate_paths(self, revisions: JSONRevisions) -> Dict[Path, List[JSONValue]]:
-        path_to_values: Dict[Path, List[JSONValue]] = {}
+    def _calculate_revision_weights(self, revisions: JSONRevisions) -> List[float]:
+        """
+        Calculates weights for each revision based on its similarity to other revisions.
+        Revisions that are similar to others get higher weights (centrality).
+        """
+        n = len(revisions)
+        if n <= 1:
+            return [1.0] * n
+
+        flat_revs = [flatten_json(r) for r in revisions]
+        scores = [[0.0] * n for _ in range(n)]
+
+        for i in range(n):
+            for j in range(i, n):
+                if i == j:
+                    scores[i][j] = 1.0
+                    continue
+
+                # Compare flat_revs[i] and flat_revs[j]
+                keys_i = set(flat_revs[i].keys())
+                keys_j = set(flat_revs[j].keys())
+                common_keys = keys_i.intersection(keys_j)
+                union_keys = keys_i.union(keys_j)
+
+                if not union_keys:
+                    similarity = 0.0
+                else:
+                    score_sum = 0.0
+                    for k in common_keys:
+                        val_i = flat_revs[i][k]
+                        val_j = flat_revs[j][k]
+                        if isinstance(val_i, str) and isinstance(val_j, str):
+                            score_sum += levenshtein_similarity(val_i, val_j)
+                        else:
+                            score_sum += 1.0 if val_i == val_j else 0.0
+
+                    similarity = score_sum / len(union_keys)
+
+                scores[i][j] = similarity
+                scores[j][i] = similarity
+
+        # Weight for rev i = sum of similarities to others
+        weights = []
+        for i in range(n):
+            w = sum(scores[i][j] for j in range(n) if i != j)
+            weights.append(w)
+
+        total = sum(weights)
+        if total == 0:
+            return [1.0 / n] * n
+
+        return [w / total for w in weights]
+
+    def _aggregate_paths(
+        self, revisions: JSONRevisions
+    ) -> Dict[Path, List[Tuple[JSONValue, int]]]:
+        """
+        Aggregates values for each path, preserving the source revision index.
+        """
+        path_to_values: Dict[Path, List[Tuple[JSONValue, int]]] = {}
         flattened_revisions = [flatten_json(rev) for rev in revisions]
-        for flat_rev in flattened_revisions:
+        for idx, flat_rev in enumerate(flattened_revisions):
             for path, value in flat_rev.items():
-                path_to_values.setdefault(path, []).append(value)
+                path_to_values.setdefault(path, []).append((value, idx))
         return path_to_values
 
     def _build_consensus_json(
         self,
-        path_to_values: Dict[Path, List[JSONValue]],
+        path_to_values: Dict[Path, List[Tuple[JSONValue, int]]],
         num_revisions: int,
         analytics: Dict[str, Any],
+        revision_weights: List[float],
     ) -> FlattenedJSON:
         consensus_flat_json: FlattenedJSON = {}
-        for path, values in path_to_values.items():
-            agreed_value = self._get_consensus_for_path(path, values, num_revisions)
+
+        total_string_sim = 0.0
+        string_path_count = 0
+
+        for path, values_with_indices in path_to_values.items():
+            values = [v for v, i in values_with_indices]
+            indices = [i for v, i in values_with_indices]
+            current_weights = [revision_weights[i] for i in indices]
+
+            # Analytics: Calculate average string similarity
+            if len(values) > 1 and all(isinstance(v, str) for v in values):
+                path_sim_sum = 0.0
+                pair_count = 0
+                for i in range(len(values)):
+                    for j in range(i + 1, len(values)):
+                        path_sim_sum += levenshtein_similarity(values[i], values[j])
+                        pair_count += 1
+                if pair_count > 0:
+                    total_string_sim += path_sim_sum / pair_count
+                    string_path_count += 1
+
+            agreed_value = self._get_consensus_for_path(
+                path, values, current_weights, num_revisions
+            )
 
             if agreed_value is not _NO_CONSENSUS:
                 consensus_flat_json[path] = agreed_value
                 analytics["paths_agreed_by_threshold"] += 1
             else:
-                # This is a conflict. Record the disagreement details.
+                # Conflict
                 value_counts = Counter(values)
                 disagreement_details = {
                     "path": ".".join(map(str, path)),
@@ -155,19 +223,23 @@ class JSONConsensus:
                     disagreement_details
                 )
 
-                # For '_temp_id' and '_type', always prefer the most common value.
+                # Special handling for _temp_id and _type
                 if path[-1] in ["_temp_id", "_type"]:
                     self.logger.debug(
                         f"Conflict at path '{'.'.join(map(str, path))}': "
                         f"Using most common value resolver for special attribute."
                     )
-                    resolved_value = prefer_most_common_resolver(path, values)
+                    resolved_value = prefer_most_common_resolver(
+                        path, values, current_weights
+                    )
                 else:
                     self.logger.debug(
                         f"Conflict at path '{'.'.join(map(str, path))}': "
                         f"Invoking custom conflict resolver. Values: {values}"
                     )
-                    resolved_value = self.conflict_resolver(path, values)
+                    resolved_value = self.conflict_resolver(
+                        path, values, current_weights
+                    )
 
                 if resolved_value is not None:
                     self.logger.debug(
@@ -183,23 +255,50 @@ class JSONConsensus:
                     analytics[
                         "paths_omitted_due_to_no_consensus_or_resolver_omission"
                     ] += 1
+
+        if string_path_count > 0:
+            analytics["average_string_similarity"] = (
+                total_string_sim / string_path_count
+            )
+
         return consensus_flat_json
 
     def _get_consensus_for_path(
-        self, path: Path, values: List[JSONValue], num_revisions: int
+        self,
+        path: Path,
+        values: List[JSONValue],
+        weights: List[float],
+        num_revisions: int,
     ) -> Union[JSONValue, object]:
-        most_common_candidate = prefer_most_common_resolver(path, values)
-        max_count = values.count(most_common_candidate)
+        # Use weighted voting if weights provided
+        most_common_candidate = prefer_most_common_resolver(path, values, weights)
 
-        # Unanimity check
-        is_unanimous = max_count == num_revisions
-        if math.isclose(self.consensus_threshold, 1.0):
-            return most_common_candidate if is_unanimous else _NO_CONSENSUS
+        # Calculate agreement ratio based on weights if available, else count
+        if weights and len(weights) == len(values):
+            aggrement_ratio = sum(
+                w for v, w in zip(values, weights) if v == most_common_candidate
+            )
+            max_count = values.count(most_common_candidate)
+            is_unanimous = max_count == num_revisions
+            if math.isclose(self.consensus_threshold, 1.0):
+                return most_common_candidate if is_unanimous else _NO_CONSENSUS
 
-        # Threshold check
-        agreement_ratio = max_count / num_revisions
-        if agreement_ratio > self.consensus_threshold:
-            return most_common_candidate
+            # Threshold check
+            if aggrement_ratio > self.consensus_threshold:
+                return most_common_candidate
+
+            return _NO_CONSENSUS
+
+        else:
+            # Fallback to unweighted
+            max_count = values.count(most_common_candidate)
+            is_unanimous = max_count == num_revisions
+            if math.isclose(self.consensus_threshold, 1.0):
+                return most_common_candidate if is_unanimous else _NO_CONSENSUS
+
+            agreement_ratio = max_count / num_revisions
+            if agreement_ratio > self.consensus_threshold:
+                return most_common_candidate
 
         return _NO_CONSENSUS
 

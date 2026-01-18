@@ -61,7 +61,12 @@ class BaseLLMClient(ABC):
             self.logger.setLevel(logging.WARNING)
 
     @abstractmethod
-    async def _execute_llm_call(self, system_prompt: str, user_prompt: str) -> str:
+    async def _execute_llm_call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+    ) -> str:
         """
         Makes the actual API call to the LLM and returns the raw string content.
 
@@ -71,6 +76,7 @@ class BaseLLMClient(ABC):
         Args:
             system_prompt: The system prompt for the LLM.
             user_prompt: The user prompt for the LLM.
+            analytics_collector: Optional analytics collector for tracking costs.
 
         Returns:
             The raw string content from the LLM response. Should return an empty
@@ -82,6 +88,32 @@ class BaseLLMClient(ABC):
         """
         ...
 
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        response_model: Type[Any],
+        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Generates a structured output directly from the LLM.
+        This defaults to raising NotImplementedError for providers that don't support it.
+
+        Args:
+            system_prompt: The system prompt.
+            user_prompt: The user prompt.
+            response_model: The Pydantic model class to parse the response into.
+            analytics_collector: Optional analytics collector.
+            **kwargs: Additional arguments.
+
+        Returns:
+            An instance of response_model.
+        """
+        raise NotImplementedError(
+            "Structured generation is not supported by this provider."
+        )
+
     async def _attempt_single_generation_and_validation(
         self,
         *,
@@ -89,16 +121,21 @@ class BaseLLMClient(ABC):
         user_prompt: str,
         validation_callable: Callable[[str, str], Dict[str, Any]],
         revision_info_for_error: str,
+        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
     ) -> Dict[str, Any]:
         """
         Performs one LLM call and one validation attempt.
         """
         raw_response_content = await self._execute_llm_call(
-            system_prompt=system_prompt, user_prompt=user_prompt
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            analytics_collector=analytics_collector,
         )
 
         if not raw_response_content:
             raise ValueError(f"{revision_info_for_error}: LLM returned empty content.")
+
+        self.logger.debug(f"received {raw_response_content} from the llm")
 
         validated_data = validation_callable(
             raw_response_content, revision_info_for_error
@@ -129,6 +166,7 @@ class BaseLLMClient(ABC):
                     user_prompt=user_prompt,
                     validation_callable=validation_callable,
                     revision_info_for_error=revision_info_for_error,
+                    analytics_collector=analytics_collector,
                 )
                 if analytics_collector:
                     analytics_collector.record_llm_api_call_success()
@@ -221,6 +259,7 @@ class BaseLLMClient(ABC):
         self.logger.info(
             f"Revision generation summary: {num_successful} successful, {num_failures} failed."
         )
+        self.logger.debug(f"Generated objects : {successful_revisions}")
 
         if failures:
             # If all revisions failed, raise an aggregate error.
@@ -235,6 +274,72 @@ class BaseLLMClient(ABC):
             )
 
         return successful_revisions
+
+    async def create_batch_job(
+        self,
+        requests: List[Dict[str, Any]],
+        endpoint: str = "/v1/chat/completions",
+        completion_window: str = "24h",
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> Any:
+        """
+        Creates a batch job for processing multiple requests.
+
+        Args:
+            requests: List of request bodies. Each request should be a dictionary
+                      representing the body of a single API call (e.g. chat completion).
+                      Each request MUST have a 'custom_id' field for identification.
+            endpoint: The API endpoint to target (default: /v1/chat/completions).
+            completion_window: The time window for completion (default: 24h).
+            metadata: Optional metadata to attach to the batch.
+
+        Returns:
+            The created batch job object.
+
+        Raises:
+            NotImplementedError: If the provider does not support batch processing.
+        """
+        raise NotImplementedError("Batch processing is not supported by this provider.")
+
+    async def retrieve_batch_job(self, batch_id: str) -> Any:
+        """
+        Retrieves the status and details of a batch job.
+        """
+        raise NotImplementedError("Batch processing is not supported by this provider.")
+
+    async def list_batch_jobs(
+        self, limit: int = 20, after: Optional[str] = None
+    ) -> Any:
+        """
+        Lists batch jobs.
+        """
+        raise NotImplementedError("Batch processing is not supported by this provider.")
+
+    async def cancel_batch_job(self, batch_id: str) -> Any:
+        """
+        Cancels a batch job.
+        """
+        raise NotImplementedError("Batch processing is not supported by this provider.")
+
+    async def retrieve_batch_results(self, file_id: str) -> str:
+        """
+        Retrieves the content of a batch output file.
+        """
+        raise NotImplementedError("Batch processing is not supported by this provider.")
+
+    def extract_content_from_batch_response(
+        self, response: Dict[str, Any]
+    ) -> Optional[str]:
+        """
+        Extracts the text content from a single item in a batch response file.
+
+        Args:
+            response: A dictionary representing a single line/item from the batch output.
+
+        Returns:
+            The extracted content string, or None if extraction failed.
+        """
+        raise NotImplementedError("Batch processing is not supported by this provider.")
 
     async def generate_json_revisions(
         self,
@@ -276,6 +381,7 @@ class BaseLLMClient(ABC):
         max_validation_retries_per_revision: int,
         target_json_schema: Optional[Dict[str, Any]] = None,
         analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+        attempt_unwrap: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Generates multiple JSON output revisions, validating against a raw JSON schema.
@@ -286,6 +392,7 @@ class BaseLLMClient(ABC):
                 raw_llm_content=content,
                 revision_info_for_error=revision_info,
                 target_json_schema=target_json_schema,
+                attempt_unwrap=attempt_unwrap,
             )
 
         return await self._generate_all_revisions(

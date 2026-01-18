@@ -5,13 +5,47 @@ How to Handle Complex Data with Hierarchical Extraction
 
 When dealing with complex, nested data structures, a single LLM call can struggle to produce a valid, complete JSON object. The hierarchical extraction feature is designed to solve this by breaking the problem down into smaller, more manageable pieces.
 
-When to Use This Feature
-------------------------
+When to Use This Feature (Decision Tree)
+----------------------------------------
 
-Use hierarchical extraction when your data has clear parent-child relationships (e.g., companies, departments, and employees) and standard extraction methods fail to capture the full structure.
+Use hierarchical extraction when your data has clear parent-child relationships and standard extraction fails. Use the following decision tree to decide:
+
+1.  **Is your Data Model Deeply Nested?** (e.g., Company -> Department -> Team -> Employee)
+    *   **Yes**: Proceed to 2.
+    *   **No**: Use **Standard Extraction**.
+
+2.  **Is the text document very long or dense?** (e.g., > 10 pages)
+    *   **Yes**: Use **Hierarchical Extraction**.
+    *   **No**: Proceed to 3.
+
+3.  **Does Standard Extraction fail to link children correctly?** (e.g., Employees assigned to wrong Department)
+    *   **Yes**: Use **Hierarchical Extraction**.
+    *   **No**: Use **Standard Extraction** (it's faster and cheaper).
 
 .. warning::
    Enabling hierarchical extraction can significantly increase the number of LLM API calls and the total processing time. Expect the number of calls to be roughly `(number of revisions) * (depth of the model)`. For a model with a depth of 3 and 3 revisions, this means about 9 calls, plus one for example generation. It should be used judiciously when the standard extraction method proves insufficient.
+
+Context Injection Mechanism
+---------------------------
+
+One of the challenges in hierarchical extraction is maintaining context. How does the LLM know which "Department" an "Employee" belongs to if we extract them separately?
+
+`extrai` uses **Context Injection** to solve this:
+
+1.  **Top-Level Extraction**: First, we extract the parent objects (e.g., `Department` A and `Department` B).
+2.  **ID Assignment**: We assign temporary IDs to these parents.
+3.  **Child Extraction Prompt**: When asking the LLM to extract `Employees`, we inject the parent context into the prompt:
+
+    .. code-block:: text
+
+        We have already found the following Departments:
+        - ID 1: Research (focus on AI)
+        - ID 2: Sales (focus on North America)
+
+        Now, extract all Employees.
+        IMPORTANT: Assign each Employee to the correct 'department_id' from the list above.
+
+This ensures that the LLM has the necessary "Foreign Keys" available to link objects correctly during the generation phase.
 
 Step 1: Define Your Nested Data Models
 ---------------------------------------
@@ -102,6 +136,26 @@ The output shows that the orchestrator successfully identified and linked the co
     Extracted Employees: [Employee(id=1, name='Dr. Alice Smith', role='Lead Scientist', department_id=1), Employee(id=2, name='Bob Johnson', role='Research Assistant', department_id=1)]
 
 This demonstrates how hierarchical extraction can robustly handle nested data by processing it one level at a time.
+
+Hierarchical Extraction in Batch Mode
+-------------------------------------
+
+Hierarchical extraction also works seamlessly with the **Batch API**, allowing you to process massive datasets cost-effectively.
+
+Key Features:
+*   **Automatic State Machine**: The pipeline automatically transitions from Parent -> Child steps.
+*   **Shallow Schemas**: To prevent hallucinations, the LLM is only given the schema for the *current* level (e.g., just `Company`, then just `Department`), preventing it from trying to extract the whole tree at once.
+*   **Contextual Linking**: When extracting children (e.g., `Departments`), the prompt includes the previously extracted parents (`Company` list) so the LLM can correctly assign Foreign Keys.
+
+Usage:
+
+.. code-block:: python
+
+    results = await orchestrator.synthesize_batch(
+        input_strings=[large_text_blob],
+        wait_for_completion=True,  # The orchestrator handles the multi-step polling loop
+        count_entities=True        # Recommended for complex hierarchies
+    )
 
 .. seealso::
 

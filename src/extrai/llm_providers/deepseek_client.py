@@ -12,7 +12,7 @@ class DeepSeekClient(GenericOpenAIClient):
         self,
         api_key: str,
         model_name: str = "deepseek-chat",
-        base_url: str = "https://api.deepseek.com/v1",
+        base_url: str = "https://api.deepseek.com",
         temperature: Optional[float] = 0.3,
         logger: Optional[logging.Logger] = None,
     ):

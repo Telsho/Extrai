@@ -13,7 +13,7 @@ This component is responsible for:
 
 - Generating a prompt for an LLM based on your documents and task description.
 - Interacting with the LLM to get a structured JSON description of the desired data models.
-- Generating Python code from this description.
+- Generating Python code from this description (via the ``PythonModelBuilder`` component).
 - Dynamically compiling and loading the new ``SQLModel`` classes into your application at runtime.
 
 Core Workflow

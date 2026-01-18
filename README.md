@@ -13,16 +13,16 @@
 
 ## 📖 Description
 
-With `extrai`, you can extract data from text documents with LLMs, which will be formatted into a given `SQLModel` and registered in your database.
+`extrai` extracts data from text documents using LLMs, formatting the output into a given `SQLModel` and registering it in a database.
 
-The core of the library is its [Consensus Mechanism](https://docs.extrai.xyz/concepts/consensus_mechanism.html). We make the same request multiple times, using the same or different providers, and then select the values that meet a certain threshold.
+The library utilizes a [Consensus Mechanism](https://docs.extrai.xyz/concepts/consensus_mechanism.html) to ensure accuracy. It makes the same request multiple times, using the same or different providers, and then selects the values that meet a configured threshold.
 
 `extrai` also has other features, like [generating `SQLModel`s](https://docs.extrai.xyz/how_to/generate_sql_model.html) from a prompt and documents, and [generating few-shot examples](https://docs.extrai.xyz/how_to/generate_example_json.html). For complex, nested data, the library offers [Hierarchical Extraction](https://docs.extrai.xyz/how_to/handle_complex_data_with_hierarchical_extraction.html), breaking down the extraction into manageable, hierarchical steps. It also includes [built-in analytics](https://docs.extrai.xyz/analytics_collector.html) to monitor performance and output quality.
 
 ## ✨ Key Features
 
-- **[Consensus Mechanism](https://docs.extrai.xyz/concepts/consensus_mechanism.html)**: Improves extraction accuracy by consolidating multiple LLM outputs.
-- **[Dynamic SQLModel Generation](https://docs.extrai.xyz/sqlmodel_generator.html)**: Generate `SQLModel` schemas from natural language descriptions.
+- **[Consensus Mechanism](https://docs.extrai.xyz/concepts/consensus_mechanism.html)**: Consolidates multiple LLM outputs to improve extraction accuracy.
+- **[Dynamic SQLModel Generation](https://docs.extrai.xyz/sqlmodel_generator.html)**: Generates `SQLModel` schemas from natural language descriptions.
 - **[Hierarchical Extraction](https://docs.extrai.xyz/how_to/handle_complex_data_with_hierarchical_extraction.html)**: Handles complex, nested data by breaking down the extraction into manageable, hierarchical steps.
 - **[Extensible LLM Support](https://docs.extrai.xyz/llm_providers.html)**: Integrates with various LLM providers through a client interface.
 - **[Built-in Analytics](https://docs.extrai.xyz/analytics_collector.html)**: Collects metrics on LLM performance and output quality to refine prompts and monitor errors.
@@ -59,7 +59,7 @@ For a complete guide, please see the full documentation. Here are the key sectio
 - **Community**
   - [Contributing Guide](https://docs.extrai.xyz/contributing.html)
 
-## ⚙️ Worflow Overview
+## ⚙️ Workflow Overview
 
 The library is built around a few key components that work together to manage the extraction workflow. The following diagram illustrates the high-level workflow (see [Architecture Overview](https://docs.extrai.xyz/concepts/architecture_overview.html)):
 

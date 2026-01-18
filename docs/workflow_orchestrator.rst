@@ -26,7 +26,7 @@ The typical workflow involves these steps:
 Initialization and Configuration
 --------------------------------
 
-The constructor of the ``WorkflowOrchestrator`` is key to configuring its behavior.
+The constructor of the ``WorkflowOrchestrator`` is key to configuring its behavior. The ``WorkflowOrchestrator`` acts as a facade, coordinating various internal components (like ``ExtractionPipeline`` and ``BatchPipeline``) to simplify the API.
 
 .. code-block:: python
 
@@ -86,6 +86,12 @@ Here are the parameters you can use:
 
       # Multiple clients for resilience
       orchestrator = WorkflowOrchestrator(..., llm_client=[client1, client2])
+
+``counting_llm_client``
+    An optional LLM client instance specifically for the entity counting phase. This allows you to use a cheaper or faster model for the initial count, while reserving the main ``llm_client`` for the detailed extraction.
+
+    *   **Type**: ``Optional[BaseLLMClient]``
+    *   **Default**: ``None`` (uses ``llm_client``)
 
 ``num_llm_revisions``
    The total number of times the LLM will be asked to generate a JSON output for the given input. A higher number increases the chances of a reliable consensus but also increases costs and latency.
@@ -155,13 +161,17 @@ Once the orchestrator is configured, you can start processing documents using on
 
       hydrated_objects = await orchestrator.synthesize(
           input_strings=["Text document 1...", "Text document 2..."],
-          db_session_for_hydration=db_session  # Optional: for relationship resolution
+          db_session_for_hydration=db_session,  # Optional: for relationship resolution
+          count_entities=True,                  # Optional: enable entity counting
+          custom_counting_context="..."         # Optional: context for counting
       )
 
    **Parameters:**
 
    *   ``input_strings`` (``List[str]``): A list of strings, where each string is a document to be processed.
    *   ``db_session_for_hydration`` (``Optional[Session]``): An optional SQLAlchemy session. If provided, the hydrator will use it to resolve relationships. If not, a temporary in-memory session is created.
+   *   ``count_entities`` (``bool``, default ``False``): If True, performs an initial pass to count entities before extraction.
+   *   ``custom_counting_context`` (``str``, optional): Custom instructions or context specifically for the entity counting phase.
    *   ``extraction_example_json`` (``str``, optional): A JSON string that provides a few-shot example to the LLM, guiding it to produce a better-structured output. If not provided, the orchestrator will attempt to auto-generate one.
    *   ``extraction_example_object`` (``Optional[Union[SQLModel, List[SQLModel]]]``, optional): An existing SQLModel object or a list of them to be used as the few-shot example. This is an alternative to providing the example as a raw JSON string.
    *   ``custom_extraction_process`` (``str``, optional): Custom, step-by-step instructions for the LLM on how to perform the extraction.
@@ -180,6 +190,88 @@ Once the orchestrator is configured, you can start processing documents using on
       )
 
    The parameters are the same as for ``synthesize()``, except it requires a ``db_session`` to commit the transaction.
+
+``synthesize_batch()``
+    Submits an asynchronous batch job for extraction. This is ideal for large-scale processing or when using cheaper batch APIs.
+
+    .. code-block:: python
+
+        # Non-blocking submission (returns str)
+        batch_id = await orchestrator.synthesize_batch(
+            input_strings=["..."],
+            db_session=db_session,
+            wait_for_completion=False
+        )
+        print(f"Batch submitted: {batch_id}")
+
+        # Blocking until complete (returns BatchProcessResult)
+        result = await orchestrator.synthesize_batch(
+            input_strings=["..."],
+            db_session=db_session,
+            wait_for_completion=True
+        )
+        print(f"Extraction complete: {len(result.hydrated_objects)} objects found.")
+
+    **Parameters:**
+
+    *   ``input_strings`` (``List[str]``): A list of strings to be processed.
+    *   ``db_session`` (``Optional[Session]``): A database session (SQLModel/SQLAlchemy) used for initial counting and potentially for result hydration.
+    *   ``wait_for_completion`` (``bool``, default ``False``):
+        *   If ``True``, the method polls the batch status until completion (or error). It handles multi-stage hierarchical batches automatically. **Returns**: ``BatchProcessResult`` (containing hydrated objects).
+        *   If ``False``, it submits the batch to the LLM provider and returns immediately. **Returns**: ``str`` (the batch job ID).
+    *   ``count_entities`` (``bool``, default ``False``): If True, performs an initial pass to count entities before extraction.
+    *   ``custom_counting_context`` (``str``, optional): Custom instructions or context specifically for the entity counting phase.
+    *   ... (other parameters similar to ``synthesize``)
+
+``create_continuation_batch()``
+    Creates a new batch job that continues from a specific step of a previous batch. This is useful for retrying failed steps or extending a workflow without re-running earlier successful steps.
+
+    .. code-block:: python
+
+        # Continue from step 2 (0-indexed) of a previous batch
+        new_batch_id = await orchestrator.create_continuation_batch(
+            original_batch_id="prev_batch_id",
+            db_session=db_session,
+            start_from_step_index=2,
+            wait_for_completion=True
+        )
+
+    **Parameters:**
+
+    *   ``original_batch_id`` (``str``): The ID of the batch to continue from.
+    *   ``start_from_step_index`` (``int``): The hierarchical step index to start the new batch from. Steps before this index will be copied from the original batch.
+    *   ``wait_for_completion`` (``bool``, default ``False``): Same behavior as in ``synthesize_batch``.
+    *   (Other parameters allow overriding configuration for the new batch)
+
+``monitor_batch_job()``
+    Polls the status of an existing batch job until it completes. This method handles multi-stage workflows (like counting -> extraction, or hierarchical steps) by automatically detecting phase transitions and submitting subsequent jobs.
+
+    .. code-block:: python
+
+        # Resume monitoring a batch (e.g., after script restart)
+        result = await orchestrator.monitor_batch_job(
+            root_batch_id="existing_batch_id",
+            db_session=db_session
+        )
+
+    **Parameters:**
+
+    *   ``root_batch_id`` (``str``): The ID of the batch to monitor.
+    *   ``poll_interval`` (``int``, default ``60``): Seconds to wait between status checks.
+
+``get_batch_status()``
+    Retrieves the current status of a batch job, checking with the LLM provider if necessary.
+
+    .. code-block:: python
+
+        status = await orchestrator.get_batch_status("batch_id", db_session)
+
+``process_batch()``
+    Processes a completed batch job. This downloads results, runs consensus, hydrates objects, and persists them to the database. It is typically called automatically by ``monitor_batch_job``, but can be used manually for non-blocking workflows.
+
+    .. code-block:: python
+
+        result = await orchestrator.process_batch("batch_id", db_session)
 
 Concise Usage Example
 ---------------------

@@ -53,25 +53,23 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
             analytics_collector=self.mock_analytics_collector,
             max_validation_retries_per_revision=self.max_retries,
         )
-        # Expected derived values
-        # In the new implementation, schema generation is more complex.
-        # We will mock the functions responsible for it to isolate the test.
-        self.patcher_discover = patch(
-            "extrai.core.example_json_generator.discover_sqlmodels_from_root"
-        )
-        self.patcher_generate_schema = patch(
-            "extrai.core.example_json_generator.generate_llm_schema_from_models"
-        )
 
-        self.mock_discover = self.patcher_discover.start()
-        self.mock_generate_schema = self.patcher_generate_schema.start()
+        self.patcher_inspector = patch(
+            "extrai.core.example_json_generator.SchemaInspector"
+        )
+        self.mock_inspector_cls = self.patcher_inspector.start()
+        self.mock_inspector = self.mock_inspector_cls.return_value
 
-        # Define what the mocked functions will return
-        self.mock_discover.return_value = {self.mock_output_model}
+        # Define what the mocked inspector methods will return
+        self.mock_inspector.discover_sqlmodels_from_root.return_value = {
+            self.mock_output_model
+        }
         self.expected_schema_str = json.dumps(
             self.mock_output_model.model_json_schema()
         )
-        self.mock_generate_schema.return_value = self.expected_schema_str
+        self.mock_inspector.generate_llm_schema_from_models.return_value = (
+            self.expected_schema_str
+        )
 
         self.generator = ExampleJSONGenerator(
             llm_client=self.mock_llm_client,
@@ -88,13 +86,14 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
         }
 
     def tearDown(self):
-        self.patcher_discover.stop()
-        self.patcher_generate_schema.stop()
+        self.patcher_inspector.stop()
 
     def test_initialization_success(self):
         """Test that the ExampleJSONGenerator initializes correctly with the new schema logic."""
-        self.mock_discover.assert_called_once_with(self.mock_output_model)
-        self.mock_generate_schema.assert_called_once_with(
+        self.mock_inspector.discover_sqlmodels_from_root.assert_called_once_with(
+            self.mock_output_model
+        )
+        self.mock_inspector.generate_llm_schema_from_models.assert_called_once_with(
             initial_model_classes={self.mock_output_model}
         )
 
@@ -166,29 +165,23 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
             object,
         )
 
-        # Mock issubclass to return True for this specific mock
-        def mock_issubclass(obj, classinfo):
-            if obj is mock_model_with_bad_schema and classinfo is SQLModel:
-                return True
-            return orig_issubclass(obj, classinfo)
+        # Configure mock to raise exception
+        self.mock_inspector.discover_sqlmodels_from_root.side_effect = Exception(
+            "Discovery failed"
+        )
 
-        orig_issubclass = issubclass  # Store original issubclass
-
-        with patch(
-            "extrai.core.example_json_generator.discover_sqlmodels_from_root",
-            side_effect=Exception("Discovery failed"),
+        with self.assertRaisesRegex(
+            ConfigurationError,
+            "Failed to derive JSON schema from output_model MockSQLModel: Discovery failed",
         ):
-            with self.assertRaisesRegex(
-                ConfigurationError,
-                "Failed to derive JSON schema from output_model MockSQLModel: Discovery failed",
-            ):
-                ExampleJSONGenerator(
-                    llm_client=self.mock_llm_client,
-                    output_model=self.mock_output_model,
-                    max_validation_retries_per_revision=1,
-                )
-        # Restore original issubclass if necessary, though patch should handle it
-        # For safety, or if not using patch.object for issubclass on the module itself.
+            ExampleJSONGenerator(
+                llm_client=self.mock_llm_client,
+                output_model=self.mock_output_model,
+                max_validation_retries_per_revision=1,
+            )
+
+        # Reset side effect for other tests (though not strictly needed as tests are isolated)
+        self.mock_inspector.discover_sqlmodels_from_root.side_effect = None
 
     @patch(
         "extrai.core.example_json_generator.generate_prompt_for_example_json_generation"

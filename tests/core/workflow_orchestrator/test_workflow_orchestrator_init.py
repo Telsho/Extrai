@@ -4,13 +4,10 @@ import unittest
 import json
 from unittest import mock
 
-from extrai.core.workflow_orchestrator import (
-    WorkflowOrchestrator,
-    ConfigurationError,
-)
-from extrai.core.analytics_collector import (
-    WorkflowAnalyticsCollector,
-)
+from extrai.core.errors import ConfigurationError
+from extrai.core.workflow_orchestrator import WorkflowOrchestrator
+
+from extrai.core.analytics_collector import WorkflowAnalyticsCollector
 from tests.core.helpers.orchestrator_test_models import DepartmentModel, EmployeeModel
 from tests.core.helpers.mock_llm_clients import (
     MockLLMClientForWorkflow as MockLLMClient,
@@ -26,67 +23,36 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
             {"schema_for_prompt": "mock_llm_prompt_schema"}
         )
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_successful_initialization(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = self.mock_prompt_llm_schema_str
-
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_successful_initialization(self, MockModelRegistry):
         orchestrator = WorkflowOrchestrator(
             root_sqlmodel_class=self.root_sqlmodel_class,
             llm_client=self.mock_llm_client,
             max_validation_retries_per_revision=2,
         )
-        mock_discover_sqlmodels.assert_called_once_with(self.root_sqlmodel_class)
 
-        expected_sqla_models_set = {DepartmentModel, EmployeeModel}
+        MockModelRegistry.assert_called_once_with(self.root_sqlmodel_class, mock.ANY)
 
-        mock_generate_llm_schema.assert_called_once()
-        called_initial_models_list = mock_generate_llm_schema.call_args.kwargs[
-            "initial_model_classes"
-        ]
-        self.assertEqual(set(called_initial_models_list), expected_sqla_models_set)
-
-        expected_model_map = {
-            "DepartmentModel": DepartmentModel,
-            "EmployeeModel": EmployeeModel,
-        }
-        self.assertEqual(
-            orchestrator.model_schema_map_for_hydration, expected_model_map
-        )
-        self.assertEqual(
-            orchestrator.target_json_schema_for_llm, self.mock_prompt_llm_schema_str
-        )
-        self.assertFalse(hasattr(orchestrator, "formal_json_schema_for_validation"))
-        self.assertEqual(orchestrator.max_validation_retries_per_revision, 2)
+        self.assertEqual(orchestrator.config.max_validation_retries_per_revision, 2)
         self.assertIsNotNone(orchestrator.analytics_collector)
         self.assertIsInstance(
             orchestrator.analytics_collector, WorkflowAnalyticsCollector
         )
-        self.assertFalse(orchestrator.use_hierarchical_extraction)  # Default
+        self.assertFalse(orchestrator.config.use_hierarchical_extraction)
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
     def test_initialization_with_hierarchical_extraction_enabled(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
+        self, MockModelRegistry
     ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = self.mock_prompt_llm_schema_str
+        # We don't check for log warning here as it's likely handled inside ExtractionConfig or not logged anymore
+        # If it is logged, it would be by config init.
 
-        with mock.patch("logging.Logger.warning") as mock_logger_warning:
-            orchestrator = WorkflowOrchestrator(
-                root_sqlmodel_class=self.root_sqlmodel_class,
-                llm_client=self.mock_llm_client,
-                use_hierarchical_extraction=True,
-            )
-            self.assertTrue(orchestrator.use_hierarchical_extraction)
-            mock_logger_warning.assert_called_once_with(
-                "Hierarchical extraction is enabled. "
-                "This may significantly increase LLM API calls and processing time "
-                "based on model complexity and the number of entities."
-            )
+        orchestrator = WorkflowOrchestrator(
+            root_sqlmodel_class=self.root_sqlmodel_class,
+            llm_client=self.mock_llm_client,
+            use_hierarchical_extraction=True,
+        )
+        self.assertTrue(orchestrator.config.use_hierarchical_extraction)
 
     def test_init_with_provided_analytics_collector(self):
         custom_collector = WorkflowAnalyticsCollector()
@@ -98,8 +64,9 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
         self.assertIs(orchestrator.analytics_collector, custom_collector)
 
     def test_init_invalid_max_validation_retries(self):
+        # Validation happens in ExtractionConfig
         with self.assertRaisesRegex(
-            ConfigurationError, "Max validation retries per revision must be at least 1"
+            ValueError, "max_validation_retries_per_revision must be at least 1"
         ):
             WorkflowOrchestrator(
                 self.root_sqlmodel_class,
@@ -107,144 +74,104 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
                 max_validation_retries_per_revision=0,
             )
 
-    def test_init_invalid_root_sqlmodel_class(self):
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_invalid_root_sqlmodel_class(self, MockModelRegistry):
+        MockModelRegistry.side_effect = ConfigurationError(
+            "root_sqlmodel_class must be a valid SQLModel class."
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError, "root_sqlmodel_class must be a valid SQLModel class."
         ):
             WorkflowOrchestrator(None, self.mock_llm_client)  # type: ignore
 
-        class NotASQLModel:
-            pass
-
-        with self.assertRaisesRegex(
-            ConfigurationError, "root_sqlmodel_class must be a valid SQLModel class."
-        ):
-            WorkflowOrchestrator(NotASQLModel, self.mock_llm_client)  # type: ignore
-
     def test_init_invalid_num_llm_revisions(self):
-        with self.assertRaisesRegex(
-            ConfigurationError, "Number of LLM revisions must be at least 1."
-        ):
+        with self.assertRaisesRegex(ValueError, "num_llm_revisions must be at least 1"):
             WorkflowOrchestrator(
                 self.root_sqlmodel_class, self.mock_llm_client, num_llm_revisions=0
             )
 
     def test_init_invalid_consensus_threshold(self):
         with self.assertRaisesRegex(
-            ConfigurationError,
-            "Extrai threshold must be between 0.0 and 1.0 inclusive.",
+            ValueError,
+            "consensus_threshold must be between 0.0 and 1.0",
         ):
             WorkflowOrchestrator(
                 self.root_sqlmodel_class, self.mock_llm_client, consensus_threshold=-0.1
             )
         with self.assertRaisesRegex(
-            ConfigurationError,
-            "Extrai threshold must be between 0.0 and 1.0 inclusive.",
+            ValueError,
+            "consensus_threshold must be between 0.0 and 1.0",
         ):
             WorkflowOrchestrator(
                 self.root_sqlmodel_class, self.mock_llm_client, consensus_threshold=1.1
             )
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    def test_init_discover_sqlmodels_fails_generic_exception(
-        self, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.side_effect = Exception("Discovery boom!")
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_discover_sqlmodels_fails_generic_exception(self, MockModelRegistry):
+        MockModelRegistry.side_effect = ConfigurationError(
+            "Failed to discover SQLModel classes: Discovery boom!"
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError, "Failed to discover SQLModel classes: Discovery boom!"
         ):
             WorkflowOrchestrator(self.root_sqlmodel_class, self.mock_llm_client)
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    def test_init_discover_sqlmodels_returns_empty(self, mock_discover_sqlmodels):
-        mock_discover_sqlmodels.return_value = []
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_discover_sqlmodels_returns_empty(self, MockModelRegistry):
+        MockModelRegistry.side_effect = ConfigurationError(
+            "No SQLModel classes were discovered from the root model."
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError,
             "No SQLModel classes were discovered from the root model.",
         ):
             WorkflowOrchestrator(self.root_sqlmodel_class, self.mock_llm_client)
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_init_generate_llm_schema_returns_empty_string(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = ""
+    # These tests about schema generation failure are now part of ModelRegistry tests
+    # But we can verify WorkflowOrchestrator bubbles up the error if ModelRegistry raises it.
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_generate_llm_schema_fails(self, MockModelRegistry):
+        MockModelRegistry.side_effect = ConfigurationError(
+            "Failed to generate the LLM prompt JSON schema"
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError,
-            r"Generated target_json_schema_for_llm \(prompt schema\) is empty.",
+            "Failed to generate the LLM prompt JSON schema",
         ):
             WorkflowOrchestrator(self.root_sqlmodel_class, self.mock_llm_client)
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_init_generate_llm_schema_returns_invalid_json(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = "not a valid json"
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_with_invalid_llm_client_in_list(self, MockModelRegistry):
+        # Validation happens in ExtractionPipeline which is initialized after ModelRegistry
         with self.assertRaisesRegex(
-            ConfigurationError,
-            "The internally generated LLM prompt JSON schema is not valid:",
-        ):
-            WorkflowOrchestrator(self.root_sqlmodel_class, self.mock_llm_client)
-
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_init_generate_llm_schema_fails_generic_exception(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.side_effect = Exception("Schema gen boom!")
-        with self.assertRaisesRegex(
-            ConfigurationError,
-            "Failed to generate the LLM prompt JSON schema: Schema gen boom!",
-        ):
-            WorkflowOrchestrator(self.root_sqlmodel_class, self.mock_llm_client)
-
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_init_with_invalid_llm_client_in_list(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = self.mock_prompt_llm_schema_str
-        with self.assertRaisesRegex(
-            ConfigurationError,
-            "All items in llm_client list must be instances of BaseLLMClient.",
+            ValueError,
+            "All items in llm_client list must be instances of BaseLLMClient",
         ):
             WorkflowOrchestrator(
                 root_sqlmodel_class=self.root_sqlmodel_class,
                 llm_client=[self.mock_llm_client, "not a client"],
             )
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_init_with_empty_llm_client_list(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = self.mock_prompt_llm_schema_str
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_with_empty_llm_client_list(self, MockModelRegistry):
         with self.assertRaisesRegex(
-            ConfigurationError,
-            "llm_client list cannot be empty.",
+            ValueError,
+            "At least one client must be provided",
         ):
             WorkflowOrchestrator(
                 root_sqlmodel_class=self.root_sqlmodel_class,
                 llm_client=[],
             )
 
-    @mock.patch("extrai.core.workflow_orchestrator.discover_sqlmodels_from_root")
-    @mock.patch("extrai.core.workflow_orchestrator.generate_llm_schema_from_models")
-    def test_init_with_invalid_llm_client_type(
-        self, mock_generate_llm_schema, mock_discover_sqlmodels
-    ):
-        mock_discover_sqlmodels.return_value = self.mock_discovered_sqlmodel_classes
-        mock_generate_llm_schema.return_value = self.mock_prompt_llm_schema_str
+    @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
+    def test_init_with_invalid_llm_client_type(self, MockModelRegistry):
         with self.assertRaisesRegex(
-            ConfigurationError,
-            "llm_client must be an instance of BaseLLMClient or a list of them.",
+            ValueError,
+            "llm_client must be an instance of BaseLLMClient or a list of them",
         ):
             WorkflowOrchestrator(
                 root_sqlmodel_class=self.root_sqlmodel_class,

@@ -13,7 +13,7 @@ The Core Idea: Field-Level Agreement
 Instead of comparing entire JSON objects, which can be brittle, the consensus mechanism works on a field-by-field basis. It achieves this through a three-step process:
 
 1.  **Flattening**: Each JSON revision is "flattened" into a simple key-value dictionary. Nested structures and list elements are represented using a dot-notation path.
-2.  **Aggregation & Voting**: The algorithm aggregates all the values for each unique path across all revisions and determines if any value meets a predefined agreement threshold.
+2.  **Weighted Aggregation**: The algorithm calculates a "Trust Score" for each revision based on its similarity to others, then aggregates values for each path.
 3.  **Un-flattening**: The paths that reached a consensus are used to reconstruct the final, nested JSON object.
 
 Step 1: Flattening
@@ -46,48 +46,59 @@ These are flattened into:
 - **Revision 1:** ``{"name": "SuperWidget", "specs.ram_gb": 16, "tags.0": "A", "tags.1": "B"}``
 - **Revision 2:** ``{"name": "SuperWidget", "specs.ram_gb": 32, "tags.0": "A", "tags.1": "C"}``
 
-Step 2: Aggregation and Voting
-------------------------------
+Step 2: Weighted Aggregation and Voting
+---------------------------------------
 
-The algorithm then groups the values for each path:
+Unlike simple majority voting, `extrai` uses a **Weighted Consensus** algorithm.
 
-- ``name``: ``["SuperWidget", "SuperWidget"]``
-- ``specs.ram_gb``: ``[16, 32]``
-- ``tags.0``: ``["A", "A"]``
-- ``tags.1``: ``["B", "C"]``
+1.  **Trust Score Calculation**: Each revision is compared against all others (using Levenshtein similarity). Revisions that are more similar to the group average get a higher weight. This helps filter out "hallucinations" or "lazy" responses that diverge significantly from the consensus.
+2.  **Vote Aggregation**: The algorithm groups values for each path and sums their weights.
 
-Next, it checks each path against the ``consensus_threshold``. This threshold (a float between 0.0 and 1.0) defines the minimum proportion of revisions that must agree. Let's assume a ``consensus_threshold`` of ``0.5``, meaning more than 50% of revisions must agree.
+For example, if Revision 1 is deemed "more trustworthy" (weight 1.2) and Revision 2 is "less trustworthy" (weight 0.8):
 
-- ``name``: "SuperWidget" appears in 2/2 revisions (100%). **Consensus reached.**
-- ``specs.ram_gb``: 16 appears in 1/2 (50%), 32 appears in 1/2 (50%). Neither meets the "> 50%" threshold. **No consensus.**
-- ``tags.0``: "A" appears in 2/2 revisions (100%). **Consensus reached.**
-- ``tags.1``: "B" appears in 1/2 (50%), "C" appears in 1/2 (50%). **No consensus.**
+- ``name`` ("SuperWidget"): 1.2 + 0.8 = 2.0 (Total Agreement)
+- ``tags.1``:
+    - "B": 1.2
+    - "C": 0.8
 
-Step 3: Un-flattening and Conflict Resolution
----------------------------------------------
+The system then checks if the **Weighted Agreement Ratio** (value weight / total weight) meets the ``consensus_threshold``.
 
-Only the paths that reached consensus are kept:
+Step 3: Conflict Resolution & Clustering
+----------------------------------------
 
-- ``name``: "SuperWidget"
-- ``tags.0``: "A"
+What happens when no value meets the threshold? The system employs a `conflict_resolver`.
 
-These are then un-flattened to produce the final JSON object:
+**Standard Resolvers**:
 
-.. code-block:: json
+-   ``default_conflict_resolver``: Omits the field if no consensus is reached.
+-   ``prefer_most_common_resolver``: Picks the value with the highest weight, even if it's below the threshold.
 
-   {
-     "name": "SuperWidget",
-     "tags": ["A"]
-   }
+**Advanced: Similarity Cluster Resolver**
 
-Notice that ``specs.ram_gb`` and the second tag are missing. This is the default behavior when no consensus is reached for a path.
+String fields often suffer from minor formatting differences that cause false conflicts. The ``SimilarityClusterResolver`` handles this by clustering similar values.
 
-Conflict Resolution
+**Example Scenario**:
+Three LLM revisions extract a "Country" field:
+
+1.  "USA"
+2.  "U.S.A."
+3.  "United States"
+4.  "France"
+
+Without clustering, each value might have a low agreement score (e.g., 25% each), failing the threshold.
+
+With **Similarity Clustering**:
+
+1.  The resolver detects that "USA" and "U.S.A." are highly similar (Levenstein distance).
+2.  "United States" might also be linked via semantic matching (if enabled).
+3.  "France" is distinct.
+4.  The system treats {"USA", "U.S.A."} as a single consensus group with 50% agreement (assuming equal weights).
+5.  If this meets the threshold, the most standard format (e.g., "USA") is selected as the final value.
+
+Analytics & Metrics
 -------------------
 
-What happens when no value meets the threshold is determined by a ``conflict_resolver`` function that can be passed to the ``JSONConsensus`` initializer. The library provides two main strategies:
+The process produces detailed metrics available in the `WorkflowAnalyticsCollector`:
 
--   ``default_conflict_resolver``: If no consensus is found for a path, the field is simply omitted from the final output.
--   ``prefer_most_common_resolver``: If no consensus is found, this resolver will pick the most frequent value, even if it doesn't meet the threshold. This is useful if you always want a value for a field, even if the LLM was inconsistent.
-
-You can also implement your own custom conflict resolver function for more advanced logic.
+-   **`consensus_confidence_score`**: An aggregate score (0.0 - 1.0) indicating how "confident" the system is in the final result, based on the average agreement ratio across all fields.
+-   **`average_string_similarity`**: Measures how textually similar the revisions were to each other.
