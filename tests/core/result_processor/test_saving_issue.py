@@ -1,7 +1,7 @@
 import logging
 import pytest
 from typing import Optional
-from sqlmodel import Field, SQLModel, Session, create_engine
+from sqlmodel import Field, SQLModel, Session, create_engine, select
 from extrai.core.result_processor import ResultProcessor
 from extrai.core.model_registry import ModelRegistry
 from extrai.core.analytics_collector import WorkflowAnalyticsCollector
@@ -73,21 +73,21 @@ def test_hydrate_and_persist_structured_output(session: Session):
     result_processor.persist(hydrated_objects, session)
 
     # Query the database to confirm persistence
-    all_configs = session.query(PetConfig).all()
+    all_configs = session.exec(select(PetConfig)).all()
     assert len(all_configs) == 3
 
     # Check some data points
-    cabin_config = (
-        session.query(PetConfig).filter(PetConfig.transport_type == "cabin").one()
-    )
+    cabin_config = session.exec(
+        select(PetConfig).where(PetConfig.transport_type == "cabin")
+    ).one()
     assert cabin_config.max_weight_lbs == 17.64
 
-    cargo_config = (
-        session.query(PetConfig).filter(PetConfig.transport_type == "cargo").one()
-    )
+    cargo_config = session.exec(
+        select(PetConfig).where(PetConfig.transport_type == "cargo")
+    ).one()
     assert cargo_config.max_weight_lbs == 165.35
 
-    assistance_config = (
-        session.query(PetConfig).filter(PetConfig.transport_type == "assistance").one()
-    )
+    assistance_config = session.exec(
+        select(PetConfig).where(PetConfig.transport_type == "assistance")
+    ).one()
     assert assistance_config.advance_booking_days == 2

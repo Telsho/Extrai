@@ -70,8 +70,8 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
         root_id = await self.pipeline.submit_batch(self.mock_session, ["doc"])
 
         self.assertIsInstance(root_id, str)
-        self.mock_session.add.assert_called_once()
-        self.mock_session.commit.assert_called_once()
+        self.assertEqual(self.mock_session.add.call_count, 2)
+        self.assertEqual(self.mock_session.commit.call_count, 2)
 
         added_context = self.mock_session.add.call_args[0][0]
         self.assertIsInstance(added_context, BatchJobContext)

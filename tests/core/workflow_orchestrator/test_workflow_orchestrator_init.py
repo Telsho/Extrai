@@ -4,13 +4,10 @@ import unittest
 import json
 from unittest import mock
 
-from extrai.core.workflow_orchestrator import (
-    WorkflowOrchestrator,
-    ConfigurationError,
-)
-from extrai.core.analytics_collector import (
-    WorkflowAnalyticsCollector,
-)
+from extrai.core.errors import ConfigurationError
+from extrai.core.workflow_orchestrator import WorkflowOrchestrator
+
+from extrai.core.analytics_collector import WorkflowAnalyticsCollector
 from tests.core.helpers.orchestrator_test_models import DepartmentModel, EmployeeModel
 from tests.core.helpers.mock_llm_clients import (
     MockLLMClientForWorkflow as MockLLMClient,

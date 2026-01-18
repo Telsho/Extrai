@@ -91,6 +91,7 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
             "get_consensus",
             return_value=(mock_consensus_output, mock_analytics_for_clear_consensus),
         ) as mock_get_consensus_call:
+            await self.orchestrator.synthesize(["input"], self.db_session)
             mock_get_consensus_call.assert_called_once_with(expected_consensus_input)
 
         self.assertEqual(self.mock_llm_client1.call_count, 1)

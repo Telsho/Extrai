@@ -66,8 +66,10 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         mock_batch_job = MagicMock()
         mock_batch_job.id = "counting_batch_id"
 
-        mock_client_instance = self.pipeline.client_rotator.get_next_client.return_value
-        mock_client_instance.create_batch_job = AsyncMock(return_value=mock_batch_job)
+        # Mock the entity_counter's client for counting phase
+        self.pipeline.entity_counter.llm_client.create_batch_job = AsyncMock(
+            return_value=mock_batch_job
+        )
 
         # Test submit
         root_id = await self.pipeline.submit_batch(
@@ -76,7 +78,7 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
 
         # Verify
         self.assertIsInstance(root_id, str)
-        self.mock_session.add.assert_called_once()
+        self.assertEqual(self.mock_session.add.call_count, 2)
         added_context = self.mock_session.add.call_args[0][0]
 
         self.assertEqual(added_context.current_batch_id, "counting_batch_id")
@@ -97,37 +99,36 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         self.mock_session.get.return_value = context
 
         # Mock get_status to return COUNTING_READY_TO_PROCESS
-        # We patch retrieve_batch_job to return completed status
-        mock_client_instance = self.pipeline.client_rotator.get_next_client.return_value
         mock_provider_job = MagicMock()
         mock_provider_job.status = "completed"
-        mock_client_instance.retrieve_batch_job = AsyncMock(
+
+        # Correctly mock entity_counter.llm_client for counting status check and results retrieval
+        self.pipeline.entity_counter.llm_client.retrieve_batch_job = AsyncMock(
             return_value=mock_provider_job
         )
 
         # Mock counting results
         counting_results_file = '{"id": "line1"}'
-        mock_client_instance.retrieve_batch_results = AsyncMock(
+        self.pipeline.entity_counter.llm_client.retrieve_batch_results = AsyncMock(
             return_value=counting_results_file
         )
-        mock_client_instance.extract_content_from_batch_response.return_value = (
-            '{"RootModel": ["desc1"]}'
-        )
+        self.pipeline.entity_counter.llm_client.extract_content_from_batch_response.return_value = '{"RootModel": ["desc1"]}'
 
         self.pipeline.entity_counter.validate_counts.return_value = {
             "RootModel": ["desc1"]
         }
 
         # Mock extraction batch submission
+        # Extraction phase uses client_rotator client
         mock_extraction_job = MagicMock()
         mock_extraction_job.id = "extraction_batch_id"
-
-        # Ensure build_prompts returns expected tuple
-        self.pipeline.prompt_builder.build_prompts.return_value = ("sys", "user")
-
+        mock_client_instance = self.pipeline.client_rotator.get_next_client.return_value
         mock_client_instance.create_batch_job = AsyncMock(
             return_value=mock_extraction_job
         )
+
+        # Ensure build_prompts returns expected tuple
+        self.pipeline.prompt_builder.build_prompts.return_value = ("sys", "user")
 
         # Test process
         result = await self.pipeline.process_batch("root_1", self.mock_session)
