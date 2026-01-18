@@ -54,7 +54,7 @@ To help you identify these entities correctly, here are their schema definitions
 # OUTPUT INSTRUCTIONS:
 1.  **Output Format:** Your output must be a single, valid JSON object.
 2.  **Keys:** The JSON object keys must be the exact names of the entities provided above.
-3.  **Values:** The values must be a list of strings, where each string is a brief description of the entity found.
+3.  **Values:** The values must be a list of strings, where each string is a description of the entity found.
 4.  **Order:** The order of the descriptions in the list must match the order of appearance in the document.
 5.  **Relational Detail:** If an entity relates to a previously extracted entity (e.g., a child entity belonging to a parent), your description MUST include the ID of that parent entity from the provided context.
 6.  **No Extra Text:** Do NOT include any explanations, markdown formatting, or text outside the JSON object.
