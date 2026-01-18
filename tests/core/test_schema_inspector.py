@@ -1,14 +1,12 @@
 import json
 import pytest
-from typing import Any, List, Optional, Set, Dict, Type
+from typing import List, Optional
 from unittest.mock import patch, MagicMock
 
 from sqlalchemy import (
     create_engine,
     Column,
-    Integer,
     String,
-    ForeignKey,
     Enum,
     UniqueConstraint,
 )

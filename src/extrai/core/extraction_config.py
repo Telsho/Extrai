@@ -1,7 +1,7 @@
 # extrai/core/extraction_config.py
 
 from dataclasses import dataclass
-from typing import Callable, Optional, Tuple, List
+from typing import Callable, Optional
 
 
 @dataclass

@@ -1,4 +1,3 @@
-import pytest
 import datetime
 import enum
 from typing import (
@@ -7,8 +6,6 @@ from typing import (
     Optional,
     Union,
     Any,
-    Set,
-    Tuple,
 )
 from extrai.utils.type_mapping import (
     get_python_type_str_from_pydantic_annotation,
@@ -122,14 +119,6 @@ def test_process_union_types_edge_case():
     # This is hard to trigger via get_python_type_str because Union[] is invalid syntax usually,
     # but we can call the helper directly.
     assert _process_union_types([], lambda x: x) == "union"
-
-    # Test with duplicates and sorting
-    args = [int, int, str]
-    # recurse_func needs to return the string rep
-    recurse = lambda x: x.__name__ if hasattr(x, "__name__") else str(x)
-    # Actually the function expects string return from recurse_func
-    # Let's use a simple mock
-    mock_recurse = lambda x: str(x)
 
     # Test deduplication and sorting: 'a', 'b', 'a' -> 'a', 'b'
     assert _process_union_types(["b", "a", "a"], lambda x: x) == "union[a,b]"

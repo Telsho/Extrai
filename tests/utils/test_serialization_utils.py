@@ -1,4 +1,3 @@
-import pytest
 from decimal import Decimal
 from typing import List, Optional
 from sqlmodel import SQLModel, Field, Relationship

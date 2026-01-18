@@ -1,5 +1,5 @@
 import keyword
-from typing import Any, Dict, Set, List, Optional
+from typing import Any, Dict, Set, List
 
 
 class ImportManager:

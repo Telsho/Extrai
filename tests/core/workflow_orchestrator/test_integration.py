@@ -5,24 +5,8 @@ from unittest.mock import AsyncMock
 
 from sqlmodel import SQLModel, create_engine, Session as SQLModelSession
 
-from extrai.core.errors import (
-    LLMAPICallError,
-    LLMOutputParseError,
-    LLMOutputValidationError,
-    WorkflowError,
-    ConsensusProcessError,
-    HydrationError,
-    LLMInteractionError,
-)
 from extrai.core.workflow_orchestrator import WorkflowOrchestrator
-from extrai.core.analytics_collector import (
-    WorkflowAnalyticsCollector,
-)
-from extrai.core.result_processor import DatabaseWriterError
 
-from extrai.core.example_json_generator import (
-    ExampleGenerationError,
-)
 
 
 from tests.core.helpers.orchestrator_test_models import DepartmentModel, EmployeeModel
@@ -88,8 +72,6 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         self.mock_llm_client1.set_revisions_to_return([llm_output_to_unwrap])
         self.mock_llm_client2.set_revisions_to_return([llm_output_to_unwrap])
 
-        input_strings = ["Some text about Jane Doe in Engineering."]
-
         from extrai.utils.flattening_utils import flatten_json
 
         example_flat_revision = flatten_json(revision_content)
@@ -110,9 +92,6 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
             "get_consensus",
             return_value=(mock_consensus_output, mock_analytics_for_clear_consensus),
         ) as mock_get_consensus_call:
-            hydrated_objects = await self.orchestrator.synthesize(
-                input_strings, self.db_session
-            )
             mock_get_consensus_call.assert_called_once_with(expected_consensus_input)
 
         self.assertEqual(self.mock_llm_client1.call_count, 1)

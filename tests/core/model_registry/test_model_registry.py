@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from typing import List, Optional
+from typing import Optional
 from sqlmodel import SQLModel, Field
 
 from extrai.core.model_registry import ModelRegistry, ConfigurationError

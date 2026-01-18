@@ -1,7 +1,5 @@
-import re
 import ast
 import pytest
-import os
 from unittest import mock
 from sqlalchemy import inspect as sqlalchemy_inspect
 from sqlmodel import SQLModel, create_engine as sqlmodel_create_engine
@@ -11,7 +9,6 @@ from extrai.core.errors import (
     SQLModelInstantiationValidationError,
 )
 from extrai.core.sqlmodel_generator import SQLModelCodeGenerator
-from extrai.core.code_generation.python_builder import ImportManager
 from extrai.core.analytics_collector import (
     WorkflowAnalyticsCollector,
 )

@@ -2,7 +2,7 @@
 import logging
 import math
 from collections import Counter
-from typing import List, Dict, Any, Callable, Optional, Union, Tuple
+from typing import List, Dict, Any, Optional, Union, Tuple
 from extrai.utils.flattening_utils import (
     flatten_json,
     unflatten_json,
@@ -17,7 +17,6 @@ from extrai.core.conflict_resolvers import (
     default_conflict_resolver,
     prefer_most_common_resolver,
     levenshtein_similarity,
-    SimilarityClusterResolver,
 )
 
 # Sentinel value to indicate that no consensus was reached for a path.

@@ -1,6 +1,5 @@
-from typing import Any, Dict, Set, Optional, List
+from typing import Any, Dict, Set, Optional
 from sqlmodel import SQLModel
-from sqlalchemy.inspection import inspect
 from sqlalchemy.orm.collections import InstrumentedList
 
 

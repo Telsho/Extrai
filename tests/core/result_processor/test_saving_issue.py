@@ -1,6 +1,6 @@
 import logging
 import pytest
-from typing import List, Optional
+from typing import Optional
 from sqlmodel import Field, SQLModel, Session, create_engine
 from extrai.core.result_processor import ResultProcessor
 from extrai.core.model_registry import ModelRegistry

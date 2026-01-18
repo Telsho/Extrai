@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
-import json
 from extrai.core.batch_pipeline import BatchPipeline, BatchJobStatus
 from extrai.core.model_registry import ModelRegistry
 from extrai.core.extraction_config import ExtractionConfig

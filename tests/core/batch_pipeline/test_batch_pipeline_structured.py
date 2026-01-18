@@ -2,14 +2,12 @@ import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
 import json
 from sqlmodel import SQLModel, Field
-from typing import Optional
 
-from extrai.core.batch_pipeline import BatchPipeline, BatchJobStatus
+from extrai.core.batch_pipeline import BatchPipeline
 from extrai.core.model_registry import ModelRegistry
 from extrai.core.extraction_config import ExtractionConfig
 from extrai.core.base_llm_client import BaseLLMClient
 from extrai.core.batch_models import BatchJobContext
-from extrai.core.errors import LLMOutputValidationError
 
 
 class Recipe(SQLModel):

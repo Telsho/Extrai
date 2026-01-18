@@ -1,6 +1,6 @@
 # extrai/core/conflict_resolvers.py
 from collections import Counter
-from typing import List, Optional, Callable, Dict, Any, Union
+from typing import List, Optional, Callable, Dict, Any
 from extrai.utils.flattening_utils import Path, JSONValue
 from difflib import SequenceMatcher
 

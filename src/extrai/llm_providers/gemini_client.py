@@ -1,5 +1,4 @@
 import logging
-import uuid
 import json
 from typing import Optional, Dict, Any, List
 from extrai.utils.rate_limiter import AsyncRateLimiter

@@ -1,6 +1,5 @@
 # extrai/core/workflow_orchestrator.py
 
-import json
 import asyncio
 import logging
 from typing import List, Dict, Any, Type, Optional, Union
@@ -15,7 +14,6 @@ from .batch_pipeline import BatchPipeline
 from .result_processor import ResultProcessor
 from .model_registry import ModelRegistry
 from .analytics_collector import WorkflowAnalyticsCollector
-from .errors import ConfigurationError, WorkflowError
 
 
 class WorkflowOrchestrator:

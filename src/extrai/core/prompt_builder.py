@@ -4,7 +4,7 @@ modularized into the `extrai.core.prompts` package.
 """
 
 import logging
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple
 from extrai.core.model_registry import ModelRegistry
 
 from extrai.core.prompts.common import generate_user_prompt_for_docs

@@ -11,7 +11,7 @@ from typing import (
     Union,
     NamedTuple,
 )
-from sqlalchemy.orm import Session, RelationshipProperty
+from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel

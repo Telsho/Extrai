@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any, Tuple, Optional, NamedTuple
+from typing import List, Dict, Any, Optional, NamedTuple
 
 from extrai.core.model_registry import ModelRegistry
 from extrai.core.prompt_builder import PromptBuilder

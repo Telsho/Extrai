@@ -1,7 +1,5 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import logging
-from typing import List, Dict, Any
 
 from extrai.core.result_processor import ResultProcessor, HydrationError, WorkflowError
 from sqlmodel import Session

@@ -1,12 +1,11 @@
 import unittest
 import unittest.mock
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional
 from sqlmodel import Relationship, SQLModel, Field, create_engine, Session
 from extrai.core.result_processor import (
     ResultProcessor,
     DirectHydrator,
-    SQLAlchemyHydrator,
 )
 from extrai.core.model_registry import ModelRegistry
 
