@@ -41,7 +41,7 @@ class BatchPipeline:
         self.logger = logger
         
         self.client_rotator = ClientRotator(llm_client)
-        self.prompt_builder = PromptBuilder(model_registry, logger)
+        self.prompt_builder = PromptBuilder(model_registry, logger=logger)
         c_client = counting_llm_client or llm_client
         if isinstance(c_client, list):
             c_client = c_client[0]
@@ -51,13 +51,13 @@ class BatchPipeline:
             c_client, 
             config, 
             analytics_collector, 
-            logger
+            logger=logger
         )
         self.context_preparer = ExtractionContextPreparer(
             model_registry,
             analytics_collector,
             config.max_validation_retries_per_revision,
-            logger
+            logger=logger
         )
         self.model_wrapper_builder = ModelWrapperBuilder()
         self.consensus = JSONConsensus(
@@ -69,7 +69,7 @@ class BatchPipeline:
             model_registry,
             self.prompt_builder,
             self.model_wrapper_builder,
-            logger
+            logger=logger
         )
     
     async def submit_batch(
@@ -600,6 +600,9 @@ class BatchPipeline:
         requests = []
         client = override_client or self.client_rotator.current_client
         revisions = num_revisions if num_revisions is not None else self.config.num_llm_revisions
+        
+        if self.config.use_structured_output and json_schema:
+            self.logger.info("Using structured output for batch requests")
         
         for i in range(revisions):
             body = {
