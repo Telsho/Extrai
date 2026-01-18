@@ -20,7 +20,12 @@ from .errors import (
 
 from .base_llm_client import BaseLLMClient
 from .analytics_collector import WorkflowAnalyticsCollector
-from .json_consensus import JSONConsensus, default_conflict_resolver, prefer_most_common_resolver, SimilarityClusterResolver
+from .json_consensus import (
+    JSONConsensus,
+    default_conflict_resolver,
+    prefer_most_common_resolver,
+    SimilarityClusterResolver,
+)
 from .prompt_builder import generate_system_prompt, generate_user_prompt_for_docs
 from .model_registry import ModelRegistry
 from .schema_inspector import SchemaInspector
@@ -57,5 +62,5 @@ __all__ = [
     "WorkflowOrchestrator",
     "SQLModelCodeGenerator",
     "ExampleJSONGenerator",
-    "SimilarityClusterResolver"
+    "SimilarityClusterResolver",
 ]

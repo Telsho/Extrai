@@ -2,6 +2,7 @@ import unittest
 import json
 from extrai.core.prompts.sqlmodel import generate_sqlmodel_creation_system_prompt
 
+
 class TestSQLModelPrompts(unittest.TestCase):
     def test_generate_sqlmodel_creation_system_prompt(self):
         """Test the specialized system prompt for SQLModel creation."""
@@ -186,6 +187,7 @@ class TestSQLModelPrompts(unittest.TestCase):
             self.fail(
                 f"Failed to extract or validate the hardcoded example JSON from prompt: {e}"
             )
+
 
 if __name__ == "__main__":
     unittest.main()

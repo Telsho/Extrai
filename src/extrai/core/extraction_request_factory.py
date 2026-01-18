@@ -7,12 +7,14 @@ from extrai.core.model_wrapper_builder import ModelWrapperBuilder
 from extrai.core.extraction_config import ExtractionConfig
 from extrai.utils.serialization_utils import make_json_serializable
 
+
 class ExtractionRequest(NamedTuple):
     system_prompt: str
     user_prompt: str
     json_schema: Optional[Dict[str, Any]]
     model_name: Optional[str]
     response_model: Optional[Any] = None
+
 
 class ExtractionRequestFactory:
     """
@@ -25,7 +27,7 @@ class ExtractionRequestFactory:
         model_registry: ModelRegistry,
         prompt_builder: PromptBuilder,
         model_wrapper_builder: ModelWrapperBuilder,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
     ):
         self.model_registry = model_registry
         self.prompt_builder = prompt_builder
@@ -47,7 +49,7 @@ class ExtractionRequestFactory:
     ) -> ExtractionRequest:
         """
         Prepares the extraction request based on the configuration and current state.
-        
+
         Args:
             input_strings: List of document strings.
             config: Extraction configuration.
@@ -59,23 +61,25 @@ class ExtractionRequestFactory:
             expected_entity_descriptions: List of descriptions (from counting).
             previous_entities: List of previously extracted entities (for hierarchical).
             hierarchical_model_index: Index of the model to extract (hierarchical only).
-            
+
         Returns:
             ExtractionRequest containing prompts, schema, and target model name.
         """
         # 1. Determine Target Model
         if config.use_hierarchical_extraction:
             if hierarchical_model_index is None:
-                 hierarchical_model_index = 0
-            
+                hierarchical_model_index = 0
+
             if not (0 <= hierarchical_model_index < len(self.model_registry.models)):
-                 raise ValueError(f"Invalid hierarchical_model_index: {hierarchical_model_index}")
+                raise ValueError(
+                    f"Invalid hierarchical_model_index: {hierarchical_model_index}"
+                )
 
             target_model = self.model_registry.models[hierarchical_model_index]
             target_model_name = target_model.__name__
         else:
             target_model = self.model_registry.root_model
-            target_model_name = None 
+            target_model_name = None
 
         # 2. Serialize Previous Entities (Context)
         serializable_previous_entities = None
@@ -85,17 +89,16 @@ class ExtractionRequestFactory:
         # 3. Generate Request
         json_schema = None
         wrapper_model = None
-        
+
         if config.use_structured_output:
             # If hierarchical, we only want the shallow model for this step (include_relationships=False)
             # If standard (not hierarchical), we want deep extraction (include_relationships=True)
             include_relationships = not config.use_hierarchical_extraction
-            
+
             wrapper_model = self.model_wrapper_builder.generate_wrapper_model(
-                target_model, 
-                include_relationships=include_relationships
+                target_model, include_relationships=include_relationships
             )
-            
+
             system_prompt, user_prompt = self.prompt_builder.build_structured_prompts(
                 input_strings=input_strings,
                 custom_extraction_process=custom_extraction_process,
@@ -104,13 +107,17 @@ class ExtractionRequestFactory:
                 extraction_example_json=extraction_example_json,
                 expected_entity_descriptions=expected_entity_descriptions,
                 previous_entities=serializable_previous_entities,
-                target_model_name=target_model_name if config.use_hierarchical_extraction else None 
+                target_model_name=target_model_name
+                if config.use_hierarchical_extraction
+                else None,
             )
             json_schema = wrapper_model.model_json_schema()
-            
+
         else:
             if config.use_hierarchical_extraction:
-                schema_json = self.model_registry.get_schema_for_models([target_model_name])
+                schema_json = self.model_registry.get_schema_for_models(
+                    [target_model_name]
+                )
             else:
                 schema_json = self.model_registry.llm_schema_json
 
@@ -124,7 +131,9 @@ class ExtractionRequestFactory:
                 custom_context=custom_context,
                 expected_entity_descriptions=expected_entity_descriptions,
                 previous_entities=serializable_previous_entities,
-                target_model_name=target_model_name if config.use_hierarchical_extraction else None
+                target_model_name=target_model_name
+                if config.use_hierarchical_extraction
+                else None,
             )
 
         return ExtractionRequest(
@@ -132,5 +141,5 @@ class ExtractionRequestFactory:
             user_prompt=user_prompt,
             json_schema=json_schema,
             model_name=target_model_name,
-            response_model=wrapper_model
+            response_model=wrapper_model,
         )

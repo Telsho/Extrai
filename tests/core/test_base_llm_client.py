@@ -615,20 +615,21 @@ async def test_generate_and_validate_raw_json_output_success(
     assert results[0] == expected_output
     mock_validate.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_batch_methods_raise_not_implemented(mock_client: MockLLMClient):
     """Tests that batch processing methods raise NotImplementedError by default."""
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
         await mock_client.create_batch_job([])
-    
+
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
         await mock_client.retrieve_batch_job("id")
-        
+
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
         await mock_client.list_batch_jobs()
-        
+
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
         await mock_client.cancel_batch_job("id")
-        
+
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
         await mock_client.retrieve_batch_results("id")

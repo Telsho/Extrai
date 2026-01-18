@@ -273,7 +273,9 @@ class WorkflowAnalyticsCollector:
         if self._workflow_errors:
             report["workflow_errors"] = self._workflow_errors
         if self._llm_output_validations_errors_details:
-            report["llm_output_validations_errors_details"] = self._llm_output_validations_errors_details
+            report["llm_output_validations_errors_details"] = (
+                self._llm_output_validations_errors_details
+            )
         if self._llm_cost_details:
             report["llm_cost_details"] = self._llm_cost_details
 

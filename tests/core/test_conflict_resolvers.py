@@ -3,8 +3,9 @@ import unittest
 from extrai.core.conflict_resolvers import (
     levenshtein_similarity,
     SimilarityClusterResolver,
-    prefer_most_common_resolver
+    prefer_most_common_resolver,
 )
+
 
 class TestConflictResolvers(unittest.TestCase):
     def test_levenshtein_similarity(self):
@@ -26,7 +27,7 @@ class TestConflictResolvers(unittest.TestCase):
         values = ["Christmas Party", "Christmas PArty", "War Zone"]
         # "Christmas Party" vs "Christmas PArty" -> ratio ~0.9
         # "War Zone" -> ratio ~0.1
-        
+
         path = ("event",)
         result = resolver(path, values)
         # Should pick from the cluster ["Christmas Party", "Christmas PArty"]
@@ -50,27 +51,28 @@ class TestConflictResolvers(unittest.TestCase):
         # Cluster [A, A'] has size 2.
         # Cluster [B] has size 1.
         # Logic says: prefer largest cluster?
-        # Code says: 
+        # Code says:
         #   if weights: best_cluster = max(clusters, key=cluster_weight)
         # Cluster [A, A'] weight = 0.2
         # Cluster [B] weight = 0.8
         # So B should win if we use weighted clustering logic!
-        
+
         # NOTE: A and A' need to be similar. "abc" and "abd".
         values = ["abc", "abd", "zzz"]
         weights = [0.1, 0.1, 0.8]
         result = resolver(("p",), values, weights)
-        self.assertEqual(result, "zzz") 
+        self.assertEqual(result, "zzz")
         # This confirms that even if "abc" and "abd" are similar, "zzz" wins because of high trust (weight).
 
     def test_prefer_most_common_weighted(self):
         values = ["A", "B", "A"]
-        weights = [0.1, 0.8, 0.05] 
+        weights = [0.1, 0.8, 0.05]
         # A total: 0.15
         # B total: 0.8
         # B wins
         result = prefer_most_common_resolver(("p",), values, weights)
         self.assertEqual(result, "B")
+
 
 if __name__ == "__main__":
     unittest.main()

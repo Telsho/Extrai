@@ -40,12 +40,18 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         self.prompt_llm_schema_for_execution = json.dumps(
             {"schema_for_prompt": "mock_llm_prompt_schema"}
         )
-        
-        self.patcher_inspector = mock.patch("extrai.core.model_registry.SchemaInspector")
+
+        self.patcher_inspector = mock.patch(
+            "extrai.core.model_registry.SchemaInspector"
+        )
         self.MockSchemaInspector = self.patcher_inspector.start()
         mock_inspector_instance = self.MockSchemaInspector.return_value
-        mock_inspector_instance.discover_sqlmodels_from_root.return_value = self.discovered_sqlmodels_for_execution
-        mock_inspector_instance.generate_llm_schema_from_models.return_value = self.prompt_llm_schema_for_execution
+        mock_inspector_instance.discover_sqlmodels_from_root.return_value = (
+            self.discovered_sqlmodels_for_execution
+        )
+        mock_inspector_instance.generate_llm_schema_from_models.return_value = (
+            self.prompt_llm_schema_for_execution
+        )
 
         self.orchestrator = WorkflowOrchestrator(
             root_sqlmodel_class=DepartmentModel,
@@ -132,7 +138,11 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         self.mock_llm_client1.set_revisions_to_return(llm_main_extraction_response)
         self.mock_llm_client2.set_revisions_to_return(llm_main_extraction_response)
 
-        with mock.patch.object(self.orchestrator.pipeline.context_preparer, "prepare_example", new_callable=AsyncMock) as mock_prepare:
+        with mock.patch.object(
+            self.orchestrator.pipeline.context_preparer,
+            "prepare_example",
+            new_callable=AsyncMock,
+        ) as mock_prepare:
             mock_prepare.return_value = user_example_json
             await self.orchestrator.synthesize(
                 input_strings,
@@ -140,6 +150,7 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
                 extraction_example_json=user_example_json,
             )
             mock_prepare.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

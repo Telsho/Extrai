@@ -33,9 +33,9 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
             llm_client=self.mock_llm_client,
             max_validation_retries_per_revision=2,
         )
-        
+
         MockModelRegistry.assert_called_once_with(self.root_sqlmodel_class, mock.ANY)
-        
+
         self.assertEqual(orchestrator.config.max_validation_retries_per_revision, 2)
         self.assertIsNotNone(orchestrator.analytics_collector)
         self.assertIsInstance(
@@ -49,7 +49,7 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
     ):
         # We don't check for log warning here as it's likely handled inside ExtractionConfig or not logged anymore
         # If it is logged, it would be by config init.
-        
+
         orchestrator = WorkflowOrchestrator(
             root_sqlmodel_class=self.root_sqlmodel_class,
             llm_client=self.mock_llm_client,
@@ -79,17 +79,17 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
 
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
     def test_init_invalid_root_sqlmodel_class(self, MockModelRegistry):
-        MockModelRegistry.side_effect = ConfigurationError("root_sqlmodel_class must be a valid SQLModel class.")
-        
+        MockModelRegistry.side_effect = ConfigurationError(
+            "root_sqlmodel_class must be a valid SQLModel class."
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError, "root_sqlmodel_class must be a valid SQLModel class."
         ):
             WorkflowOrchestrator(None, self.mock_llm_client)  # type: ignore
 
     def test_init_invalid_num_llm_revisions(self):
-        with self.assertRaisesRegex(
-            ValueError, "num_llm_revisions must be at least 1"
-        ):
+        with self.assertRaisesRegex(ValueError, "num_llm_revisions must be at least 1"):
             WorkflowOrchestrator(
                 self.root_sqlmodel_class, self.mock_llm_client, num_llm_revisions=0
             )
@@ -111,11 +111,11 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
             )
 
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
-    def test_init_discover_sqlmodels_fails_generic_exception(
-        self, MockModelRegistry
-    ):
-        MockModelRegistry.side_effect = ConfigurationError("Failed to discover SQLModel classes: Discovery boom!")
-        
+    def test_init_discover_sqlmodels_fails_generic_exception(self, MockModelRegistry):
+        MockModelRegistry.side_effect = ConfigurationError(
+            "Failed to discover SQLModel classes: Discovery boom!"
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError, "Failed to discover SQLModel classes: Discovery boom!"
         ):
@@ -123,8 +123,10 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
 
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
     def test_init_discover_sqlmodels_returns_empty(self, MockModelRegistry):
-        MockModelRegistry.side_effect = ConfigurationError("No SQLModel classes were discovered from the root model.")
-        
+        MockModelRegistry.side_effect = ConfigurationError(
+            "No SQLModel classes were discovered from the root model."
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError,
             "No SQLModel classes were discovered from the root model.",
@@ -134,11 +136,11 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
     # These tests about schema generation failure are now part of ModelRegistry tests
     # But we can verify WorkflowOrchestrator bubbles up the error if ModelRegistry raises it.
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
-    def test_init_generate_llm_schema_fails(
-        self, MockModelRegistry
-    ):
-        MockModelRegistry.side_effect = ConfigurationError("Failed to generate the LLM prompt JSON schema")
-        
+    def test_init_generate_llm_schema_fails(self, MockModelRegistry):
+        MockModelRegistry.side_effect = ConfigurationError(
+            "Failed to generate the LLM prompt JSON schema"
+        )
+
         with self.assertRaisesRegex(
             ConfigurationError,
             "Failed to generate the LLM prompt JSON schema",
@@ -146,9 +148,7 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
             WorkflowOrchestrator(self.root_sqlmodel_class, self.mock_llm_client)
 
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
-    def test_init_with_invalid_llm_client_in_list(
-        self, MockModelRegistry
-    ):
+    def test_init_with_invalid_llm_client_in_list(self, MockModelRegistry):
         # Validation happens in ExtractionPipeline which is initialized after ModelRegistry
         with self.assertRaisesRegex(
             ValueError,
@@ -160,9 +160,7 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
             )
 
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
-    def test_init_with_empty_llm_client_list(
-        self, MockModelRegistry
-    ):
+    def test_init_with_empty_llm_client_list(self, MockModelRegistry):
         with self.assertRaisesRegex(
             ValueError,
             "At least one client must be provided",
@@ -173,9 +171,7 @@ class TestWorkflowOrchestratorInitialization(unittest.TestCase):
             )
 
     @mock.patch("extrai.core.workflow_orchestrator.ModelRegistry")
-    def test_init_with_invalid_llm_client_type(
-        self, MockModelRegistry
-    ):
+    def test_init_with_invalid_llm_client_type(self, MockModelRegistry):
         with self.assertRaisesRegex(
             ValueError,
             "llm_client must be an instance of BaseLLMClient or a list of them",

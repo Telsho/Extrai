@@ -312,13 +312,16 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
             book = instances[0]
             self.assertEqual(book.title, "Book with Broken Link")
             self.assertIsNone(book.author)
-            
+
             self.assertTrue(mock_warning.called)
             # Check if any call contains the expected message
             found = False
             for call in mock_warning.call_args_list:
                 args, _ = call
-                if "Referenced _temp_id 'non_existent_author' for relation 'author'" in args[0]:
+                if (
+                    "Referenced _temp_id 'non_existent_author' for relation 'author'"
+                    in args[0]
+                ):
                     found = True
                     break
             self.assertTrue(found, "Expected warning message not found in logger calls")
@@ -499,12 +502,15 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
             author = next((i for i in instances if isinstance(i, Author)), None)
             self.assertIsNotNone(author)
             self.assertEqual(len(author.books), 0)
-            
+
             self.assertTrue(mock_warning.called)
             found = False
             for call in mock_warning.call_args_list:
                 args, _ = call
-                if "Value for 'books_ref_ids' on instance 'auth_invalid_ref_ids' is not a list" in args[0]:
+                if (
+                    "Value for 'books_ref_ids' on instance 'auth_invalid_ref_ids' is not a list"
+                    in args[0]
+                ):
                     found = True
                     break
             self.assertTrue(found, "Expected warning message not found in logger calls")
@@ -520,17 +526,24 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
                 },
                 {"_type": "book", "_temp_id": "book1", "title": "Book 1"},
             ]
-            with unittest.mock.patch.object(self.test_logger, "warning") as mock_warning:
+            with unittest.mock.patch.object(
+                self.test_logger, "warning"
+            ) as mock_warning:
                 self._hydrate_and_query(entities_list)
-                
+
                 self.assertTrue(mock_warning.called)
                 found = False
                 for call in mock_warning.call_args_list:
                     args, _ = call
-                    if "Referenced _temp_id '123' in list for relation 'books' on instance 'auth1' (type: author) not found or invalid type." in args[0]:
+                    if (
+                        "Referenced _temp_id '123' in list for relation 'books' on instance 'auth1' (type: author) not found or invalid type."
+                        in args[0]
+                    ):
                         found = True
                         break
-                self.assertTrue(found, "Expected warning message not found in logger calls")
+                self.assertTrue(
+                    found, "Expected warning message not found in logger calls"
+                )
 
         with self.subTest("missing_ref"):
             entities_list = [
@@ -542,17 +555,24 @@ class TestSQLAlchemyHydrator(unittest.TestCase):
                 },
                 {"_type": "book", "_temp_id": "book2", "title": "Book 2"},
             ]
-            with unittest.mock.patch.object(self.test_logger, "warning") as mock_warning:
+            with unittest.mock.patch.object(
+                self.test_logger, "warning"
+            ) as mock_warning:
                 self._hydrate_and_query(entities_list)
-                
+
                 self.assertTrue(mock_warning.called)
                 found = False
                 for call in mock_warning.call_args_list:
                     args, _ = call
-                    if "Referenced _temp_id 'non_existent' in list for relation 'books' on instance 'auth2' (type: author) not found or invalid type." in args[0]:
+                    if (
+                        "Referenced _temp_id 'non_existent' in list for relation 'books' on instance 'auth2' (type: author) not found or invalid type."
+                        in args[0]
+                    ):
                         found = True
                         break
-                self.assertTrue(found, "Expected warning message not found in logger calls")
+                self.assertTrue(
+                    found, "Expected warning message not found in logger calls"
+                )
 
     def test_no_pk_coverage(self):
         """

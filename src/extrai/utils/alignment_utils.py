@@ -11,7 +11,11 @@ def normalize_json_revisions(revisions: List[Any]) -> List[Any]:
         return revisions
 
     # Check if all revisions are lists of dictionaries (entity arrays)
-    if all(isinstance(rev, list) and rev and isinstance(rev[0], dict) for rev in revisions if rev):
+    if all(
+        isinstance(rev, list) and rev and isinstance(rev[0], dict)
+        for rev in revisions
+        if rev
+    ):
         return align_entity_arrays(revisions)
 
     # Check if revisions have a "results" wrapper
@@ -25,7 +29,9 @@ def normalize_json_revisions(revisions: List[Any]) -> List[Any]:
     return revisions
 
 
-def align_entity_arrays(arrays: List[List[Dict[str, Any]]]) -> List[List[Dict[str, Any]]]:
+def align_entity_arrays(
+    arrays: List[List[Dict[str, Any]]],
+) -> List[List[Dict[str, Any]]]:
     """
     Aligns multiple arrays of entities so similar objects are in the same positions.
     Uses the first array as reference and matches objects based on similarity.
@@ -36,7 +42,9 @@ def align_entity_arrays(arrays: List[List[Dict[str, Any]]]) -> List[List[Dict[st
     # Validate all arrays have the same length
     lengths = [len(arr) for arr in arrays]
     if len(set(lengths)) > 1:
-        print(f"Warning: Arrays have different lengths {lengths}. Using minimum length.")
+        print(
+            f"Warning: Arrays have different lengths {lengths}. Using minimum length."
+        )
         min_length = min(lengths)
         arrays = [arr[:min_length] for arr in arrays]
 
@@ -60,8 +68,9 @@ def align_entity_arrays(arrays: List[List[Dict[str, Any]]]) -> List[List[Dict[st
     return aligned
 
 
-def find_best_match(target: Dict[str, Any], candidates: List[Dict[str, Any]], 
-                    used_indices: set) -> int:
+def find_best_match(
+    target: Dict[str, Any], candidates: List[Dict[str, Any]], used_indices: set
+) -> int:
     """
     Finds the index of the most similar object in candidates that hasn't been used.
     """
@@ -89,8 +98,8 @@ def calculate_similarity(obj1: Dict[str, Any], obj2: Dict[str, Any]) -> float:
         return 1.0 if obj1 == obj2 else 0.0
 
     # Check for ID fields first (quick exact match)
-    id1 = obj1.get('_temp_id') or obj1.get('id')
-    id2 = obj2.get('_temp_id') or obj2.get('id')
+    id1 = obj1.get("_temp_id") or obj1.get("id")
+    id2 = obj2.get("_temp_id") or obj2.get("id")
     if id1 and id2 and str(id1) == str(id2):
         return 1.0
 
@@ -156,8 +165,7 @@ def compare_values(val1: Any, val2: Any) -> float:
         similarities = []
         for item1 in val1:
             best_match = max(
-                (compare_values(item1, item2) for item2 in val2),
-                default=0.0
+                (compare_values(item1, item2) for item2 in val2), default=0.0
             )
             similarities.append(best_match)
 

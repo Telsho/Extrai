@@ -6,8 +6,9 @@ from extrai.core.prompt_builder import (
     generate_sqlmodel_creation_system_prompt,
     generate_prompt_for_example_json_generation,
     generate_entity_counting_system_prompt,
-    generate_entity_counting_user_prompt
+    generate_entity_counting_user_prompt,
 )
+
 
 class TestPromptBuilderFacade(unittest.TestCase):
     def test_facade_exports(self):
@@ -21,6 +22,7 @@ class TestPromptBuilderFacade(unittest.TestCase):
         self.assertTrue(callable(generate_prompt_for_example_json_generation))
         self.assertTrue(callable(generate_entity_counting_system_prompt))
         self.assertTrue(callable(generate_entity_counting_user_prompt))
+
 
 if __name__ == "__main__":
     unittest.main()

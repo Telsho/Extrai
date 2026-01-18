@@ -77,10 +77,16 @@ class GenericOpenAIClient(BaseLLMClient):
                 else openai.NOT_GIVEN,
             )
 
-            if analytics_collector and hasattr(chat_completion, "usage") and chat_completion.usage:
+            if (
+                analytics_collector
+                and hasattr(chat_completion, "usage")
+                and chat_completion.usage
+            ):
                 analytics_collector.record_llm_usage(
                     input_tokens=getattr(chat_completion.usage, "prompt_tokens", 0),
-                    output_tokens=getattr(chat_completion.usage, "completion_tokens", 0),
+                    output_tokens=getattr(
+                        chat_completion.usage, "completion_tokens", 0
+                    ),
                     model=self.model_name,
                 )
 
@@ -112,7 +118,7 @@ class GenericOpenAIClient(BaseLLMClient):
         user_prompt: str,
         response_model: Any,
         analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Any:
         """
         Generates structured output using OpenAI's beta.chat.completions.parse.
@@ -130,10 +136,14 @@ class GenericOpenAIClient(BaseLLMClient):
                 temperature=self.temperature
                 if self.temperature is not None
                 else openai.NOT_GIVEN,
-                **kwargs
+                **kwargs,
             )
 
-            if analytics_collector and hasattr(completion, "usage") and completion.usage:
+            if (
+                analytics_collector
+                and hasattr(completion, "usage")
+                and completion.usage
+            ):
                 analytics_collector.record_llm_usage(
                     input_tokens=getattr(completion.usage, "prompt_tokens", 0),
                     output_tokens=getattr(completion.usage, "completion_tokens", 0),
@@ -142,8 +152,10 @@ class GenericOpenAIClient(BaseLLMClient):
 
             message = completion.choices[0].message
             if message.refusal:
-                raise LLMAPICallError(f"Model refused to generate structured output: {message.refusal}")
-            
+                raise LLMAPICallError(
+                    f"Model refused to generate structured output: {message.refusal}"
+                )
+
             return message.parsed
 
         except openai.APIError as e:
@@ -266,7 +278,9 @@ class GenericOpenAIClient(BaseLLMClient):
                 f"Failed to retrieve file content {file_id}: {e}"
             ) from e
 
-    def extract_content_from_batch_response(self, response: Dict[str, Any]) -> Optional[str]:
+    def extract_content_from_batch_response(
+        self, response: Dict[str, Any]
+    ) -> Optional[str]:
         """
         Extracts content from OpenAI batch response item.
         """

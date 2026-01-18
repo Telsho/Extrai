@@ -25,13 +25,16 @@ from extrai.core.prompts.examples import (
     generate_prompt_for_example_json_generation,
 )
 
+
 class PromptBuilder:
     """
     Facade class for generating prompts, maintaining compatibility with
     pipeline components that expect an object instance.
     """
-    
-    def __init__(self, model_registry: ModelRegistry, logger: Optional[logging.Logger] = None):
+
+    def __init__(
+        self, model_registry: ModelRegistry, logger: Optional[logging.Logger] = None
+    ):
         self.model_registry = model_registry
         self.logger = logger or logging.getLogger(__name__)
 
@@ -62,9 +65,9 @@ class PromptBuilder:
             previous_entities=previous_entities,
             target_model_name=target_model_name,
         )
-        
+
         user_prompt = generate_user_prompt_for_docs(input_strings)
-        
+
         return system_prompt, user_prompt
 
     def build_structured_prompts(
@@ -90,10 +93,11 @@ class PromptBuilder:
             previous_entities=previous_entities,
             target_model_name=target_model_name,
         )
-        
+
         user_prompt = generate_user_prompt_for_docs(input_strings)
-        
+
         return system_prompt, user_prompt
+
 
 __all__ = [
     "PromptBuilder",

@@ -2,6 +2,7 @@ import unittest
 import json
 from extrai.core.prompts.examples import generate_prompt_for_example_json_generation
 
+
 class TestExamplePrompts(unittest.TestCase):
     def setUp(self):
         """Set up common test data."""
@@ -57,6 +58,7 @@ class TestExamplePrompts(unittest.TestCase):
             "Your 'entities' list should contain an instance of the root model", prompt
         )
         self.assertIn("at least one instance of each of its related models", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

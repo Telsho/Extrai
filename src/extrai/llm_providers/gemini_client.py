@@ -43,8 +43,12 @@ class GeminiClient(GenericOpenAIClient):
             temperature=temperature,
             logger=logger,
         )
-        self.request_limiter = AsyncRateLimiter(max_capacity=requests_per_minute, period=60.0)
-        self.token_limiter = AsyncRateLimiter(max_capacity=tokens_per_minute, period=60.0)
+        self.request_limiter = AsyncRateLimiter(
+            max_capacity=requests_per_minute, period=60.0
+        )
+        self.token_limiter = AsyncRateLimiter(
+            max_capacity=tokens_per_minute, period=60.0
+        )
         self.logger = logger
 
     async def _execute_llm_call(
@@ -78,6 +82,7 @@ class GeminiClient(GenericOpenAIClient):
         This implements a dependency-free version of the 'jsonref' workaround.
         """
         import copy
+
         schema = copy.deepcopy(schema)
         defs = schema.pop("$defs", {}) or schema.pop("definitions", {})
 
@@ -125,12 +130,12 @@ class GeminiClient(GenericOpenAIClient):
                     contents.append({"role": "user", "parts": [{"text": content}]})
                 elif role == "assistant":
                     contents.append({"role": "model", "parts": [{"text": content}]})
-            
+
             # Construct the request object
             # Note: We need to ensure we use the correct model format
             # API expects model resource name in URL usually, but can also be in request?
             # Inline requests structure: { "request": { ... }, "metadata": ... }
-            
+
             # Map configuration
             generation_config = {}
             if "temperature" in body:
@@ -142,48 +147,43 @@ class GeminiClient(GenericOpenAIClient):
             response_format = body.get("response_format", {})
             if response_format.get("type") == "json_schema":
                 generation_config["responseMimeType"] = "application/json"
-                if "json_schema" in response_format and "schema" in response_format["json_schema"]:
+                if (
+                    "json_schema" in response_format
+                    and "schema" in response_format["json_schema"]
+                ):
                     raw_schema = response_format["json_schema"]["schema"]
-                    generation_config["responseJsonSchema"] = self._sanitize_schema_for_gemini(raw_schema)
+                    generation_config["responseJsonSchema"] = (
+                        self._sanitize_schema_for_gemini(raw_schema)
+                    )
             elif response_format.get("type") == "json_object":
                 generation_config["responseMimeType"] = "application/json"
 
-            g_req_inner = {
-                "contents": contents,
-                "generationConfig": generation_config
-            }
+            g_req_inner = {"contents": contents, "generationConfig": generation_config}
             if system_instruction:
                 g_req_inner["system_instruction"] = system_instruction
 
-            gemini_requests.append({
-                "request": g_req_inner,
-                "metadata": {"key": custom_id}
-            })
+            gemini_requests.append(
+                {"request": g_req_inner, "metadata": {"key": custom_id}}
+            )
 
         # Construct Payload
         payload = {
-            "batch": {
-                "input_config": {
-                    "requests": {
-                        "requests": gemini_requests
-                    }
-                }
-            }
+            "batch": {"input_config": {"requests": {"requests": gemini_requests}}}
         }
         if metadata and "display_name" in metadata:
-             payload["batch"]["display_name"] = metadata["display_name"]
+            payload["batch"]["display_name"] = metadata["display_name"]
 
         url = f"{self.base_url}models/{self.model_name}:batchGenerateContent?key={self.api_key}"
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"}
+                url, json=payload, headers={"Content-Type": "application/json"}
             )
             if resp.status_code >= 400:
-                raise LLMAPICallError(f"Gemini Batch Creation Failed: {resp.status_code} - {resp.text}")
-            
+                raise LLMAPICallError(
+                    f"Gemini Batch Creation Failed: {resp.status_code} - {resp.text}"
+                )
+
             return self._wrap_batch_response(resp.json())
 
     async def retrieve_batch_job(self, batch_id: str) -> Any:
@@ -191,13 +191,16 @@ class GeminiClient(GenericOpenAIClient):
         Retrieves batch status using Native REST API.
         """
         import httpx
+
         # batch_id is expected to be the full resource name e.g., "batches/12345"
         url = f"{self.base_url}{batch_id}?key={self.api_key}"
-        
+
         async with httpx.AsyncClient() as client:
             resp = await client.get(url)
             if resp.status_code >= 400:
-                 raise LLMAPICallError(f"Gemini Batch Retrieve Failed: {resp.status_code} - {resp.text}")
+                raise LLMAPICallError(
+                    f"Gemini Batch Retrieve Failed: {resp.status_code} - {resp.text}"
+                )
             return self._wrap_batch_response(resp.json())
 
     async def cancel_batch_job(self, batch_id: str) -> Any:
@@ -205,12 +208,15 @@ class GeminiClient(GenericOpenAIClient):
         Cancels batch job using Native REST API.
         """
         import httpx
+
         url = f"{self.base_url}{batch_id}:cancel?key={self.api_key}"
-        
+
         async with httpx.AsyncClient() as client:
             resp = await client.post(url)
             if resp.status_code >= 400:
-                 raise LLMAPICallError(f"Gemini Batch Cancel Failed: {resp.status_code} - {resp.text}")
+                raise LLMAPICallError(
+                    f"Gemini Batch Cancel Failed: {resp.status_code} - {resp.text}"
+                )
             # Empty response usually on success? Or updated metadata.
             # We can re-fetch or just return true/empty
             return True
@@ -230,93 +236,107 @@ class GeminiClient(GenericOpenAIClient):
                 # The docs say: response.inlinedResponses
                 # We can try to extract output_file_id if it exists, or handle inline.
                 # OpenAI interface expects output_file_id for retrieve_batch_results.
-                # If inline, we can't provide a file ID. 
+                # If inline, we can't provide a file ID.
                 # We'll need retrieve_batch_results to handle the batch_id as file_id for inline.
-                
+
         return GeminiBatchJob(data)
 
     async def retrieve_batch_results(self, file_id: str) -> str:
         """
-        Retrieves batch results. 
+        Retrieves batch results.
         For Gemini Inline, 'file_id' should be the batch ID.
         """
         # If the batch job had 'responsesFile', we download it.
         # If it had 'inlinedResponses', we format it as JSONL.
-        
+
         # We need to fetch the batch first to see which one it is (or assume we have the object)
         # But this method usually takes just an ID.
         # So we fetch the batch.
-        
+
         batch = await self.retrieve_batch_job(file_id)
         data = batch.original_data
-        
+
         # Check for inline responses
         # Structure: data.get("response", {}).get("inlinedResponses", [])
         # Actually docs say: batch_job.dest.inlined_responses (SDK) or .response.inlinedResponses (REST)
-        
+
         # REST: .response.inlinedResponses
-        response_section = data.get("response", {}) # Not to be confused with 'responses'
+        response_section = data.get(
+            "response", {}
+        )  # Not to be confused with 'responses'
         # Wait, the example output JSON says:
         # "response": { "inlinedResponses": [ ... ] } OR "response": { "responsesFile": "..." }
-        
+
         inlined = response_section.get("inlinedResponses")
         if inlined:
-             # Handle case where inlined might be a dict (unexpected but observed)
-             if isinstance(inlined, dict):
-                 # If it's a dict, maybe the list is nested or it's a map?
-                 self.logger.warning(f"inlinedResponses is a dict, keys: {list(inlined.keys())}")
-                 # Try to find the actual list
-                 if "inlinedResponses" in inlined:
-                     inlined = inlined["inlinedResponses"]
-                 elif "responses" in inlined:
-                     inlined = inlined["responses"]
-                 elif "results" in inlined:
-                     inlined = inlined["results"]
-                 else:
-                     # Fallback: treat values as the list if they look like items
-                     inlined = list(inlined.values())
+            # Handle case where inlined might be a dict (unexpected but observed)
+            if isinstance(inlined, dict):
+                # If it's a dict, maybe the list is nested or it's a map?
+                self.logger.warning(
+                    f"inlinedResponses is a dict, keys: {list(inlined.keys())}"
+                )
+                # Try to find the actual list
+                if "inlinedResponses" in inlined:
+                    inlined = inlined["inlinedResponses"]
+                elif "responses" in inlined:
+                    inlined = inlined["responses"]
+                elif "results" in inlined:
+                    inlined = inlined["results"]
+                else:
+                    # Fallback: treat values as the list if they look like items
+                    inlined = list(inlined.values())
 
-             # Convert to JSONL string to match OpenAI format
-             lines = []
-             for item in inlined:
-                 # item has 'response' or 'error' and 'requestKey' (if we used metadata.key)
-                 # We should map back to OpenAI-like format if possible
-                 if isinstance(item, str):
-                      self.logger.warning(f"Unexpected string item in inlinedResponses: {item}")
-                      continue
-                 lines.append(json.dumps(item))
-             return "\n".join(lines)
-             
+            # Convert to JSONL string to match OpenAI format
+            lines = []
+            for item in inlined:
+                # item has 'response' or 'error' and 'requestKey' (if we used metadata.key)
+                # We should map back to OpenAI-like format if possible
+                if isinstance(item, str):
+                    self.logger.warning(
+                        f"Unexpected string item in inlinedResponses: {item}"
+                    )
+                    continue
+                lines.append(json.dumps(item))
+            return "\n".join(lines)
+
         file_name = response_section.get("responsesFile")
         if file_name:
-             # Download file
-             # url: https://generativelanguage.googleapis.com/download/v1beta/$responses_file_name:download?alt=media
-             import httpx
-             url = f"https://generativelanguage.googleapis.com/download/v1beta/{file_name}:download?alt=media&key={self.api_key}"
-             async with httpx.AsyncClient() as client:
+            # Download file
+            # url: https://generativelanguage.googleapis.com/download/v1beta/$responses_file_name:download?alt=media
+            import httpx
+
+            url = f"https://generativelanguage.googleapis.com/download/v1beta/{file_name}:download?alt=media&key={self.api_key}"
+            async with httpx.AsyncClient() as client:
                 resp = await client.get(url)
                 if resp.status_code >= 400:
-                    raise LLMAPICallError(f"Gemini Result Download Failed: {resp.status_code}")
+                    raise LLMAPICallError(
+                        f"Gemini Result Download Failed: {resp.status_code}"
+                    )
                 return resp.text
-                
+
         raise LLMAPICallError("No results found in batch (or batch not complete).")
 
-    async def list_batch_jobs(self, limit: int = 20, after: Optional[str] = None) -> Any:
+    async def list_batch_jobs(
+        self, limit: int = 20, after: Optional[str] = None
+    ) -> Any:
         import httpx
+
         url = f"{self.base_url}batches?key={self.api_key}&pageSize={limit}"
         if after:
             url += f"&pageToken={after}"
-            
+
         async with httpx.AsyncClient() as client:
             resp = await client.get(url)
             if resp.status_code >= 400:
-                 raise LLMAPICallError(f"Gemini List Batches Failed: {resp.text}")
-            
+                raise LLMAPICallError(f"Gemini List Batches Failed: {resp.text}")
+
             data = resp.json()
             # Wrap list?
             return data
 
-    def extract_content_from_batch_response(self, response: Dict[str, Any]) -> Optional[str]:
+    def extract_content_from_batch_response(
+        self, response: Dict[str, Any]
+    ) -> Optional[str]:
         """
         Extracts content from Gemini batch response item.
         """

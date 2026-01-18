@@ -61,12 +61,16 @@ class ExampleJSONGenerator:
         # Derive schema and root model name from the SQLModel
         try:
             # Discover all related models starting from the root model
-            all_models = self.schema_inspector.discover_sqlmodels_from_root(output_model)
+            all_models = self.schema_inspector.discover_sqlmodels_from_root(
+                output_model
+            )
 
             # Generate the comprehensive schema for the LLM, which includes all related models
             # to guide the LLM in creating a nested example.
-            self.target_json_schema_for_llm_str = self.schema_inspector.generate_llm_schema_from_models(
-                initial_model_classes=all_models
+            self.target_json_schema_for_llm_str = (
+                self.schema_inspector.generate_llm_schema_from_models(
+                    initial_model_classes=all_models
+                )
             )
 
             # The schema for basic validation by the LLM client needs to match the new
@@ -104,7 +108,9 @@ class ExampleJSONGenerator:
 
         try:
             # Discover all related models to build the schema map for validation.
-            all_models = self.schema_inspector.discover_sqlmodels_from_root(self.output_model)
+            all_models = self.schema_inspector.discover_sqlmodels_from_root(
+                self.output_model
+            )
             model_schema_map = {model.__name__: model for model in all_models}
 
             validated_revisions = await self.llm_client.generate_json_revisions(

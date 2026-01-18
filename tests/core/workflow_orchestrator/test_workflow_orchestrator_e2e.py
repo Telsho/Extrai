@@ -39,8 +39,12 @@ class TestWorkflowOrchestratorE2E(unittest.IsolatedAsyncioTestCase):
 
         # Configure the mock inspector instance
         mock_inspector = MockSchemaInspector.return_value
-        mock_inspector.discover_sqlmodels_from_root.return_value = self.mock_discovered_sqlmodels_e2e
-        mock_inspector.generate_llm_schema_from_models.return_value = self.mock_prompt_llm_schema_str_e2e
+        mock_inspector.discover_sqlmodels_from_root.return_value = (
+            self.mock_discovered_sqlmodels_e2e
+        )
+        mock_inspector.generate_llm_schema_from_models.return_value = (
+            self.mock_prompt_llm_schema_str_e2e
+        )
 
     def tearDown(self):
         self.db_session.close()

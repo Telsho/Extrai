@@ -24,6 +24,7 @@ SQLModelInstance = SQLModel
 
 class DatabaseWriterError(Exception):
     """Custom exception for database writer errors."""
+
     pass
 
 
@@ -40,19 +41,24 @@ class DirectHydrator:
     Does not require _temp_id or _type fields.
     Supports recursive hydration of nested relationships.
     """
-    def __init__(self, session: Session, logger: Optional[logging.Logger] = None, 
-                 original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = None, 
-                 all_instances: List[SQLModelInstance] = None):
+
+    def __init__(
+        self,
+        session: Session,
+        logger: Optional[logging.Logger] = None,
+        original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = None,
+        all_instances: List[SQLModelInstance] = None,
+    ):
         self.session = session
         self.logger = logger or logging.getLogger(__name__)
         self.original_pk_map = original_pk_map if original_pk_map is not None else {}
         self.all_instances = all_instances if all_instances is not None else []
 
     def hydrate(
-        self, 
-        data: List[Dict[str, Any]], 
+        self,
+        data: List[Dict[str, Any]],
         model_map: Dict[str, Type[SQLModel]],
-        default_model_class: Optional[Type[SQLModel]] = None
+        default_model_class: Optional[Type[SQLModel]] = None,
     ) -> List[SQLModelInstance]:
         instances = []
         for item in data:
@@ -60,28 +66,32 @@ class DirectHydrator:
                 # Determine model class
                 _type = item.get("_type")
                 model_class = None
-                
+
                 if _type and _type in model_map:
                     model_class = model_map[_type]
                 elif default_model_class:
                     model_class = default_model_class
-                
+
                 if not model_class:
-                     raise ValueError(f"Could not determine model class for item (missing _type and no default): {item}")
+                    raise ValueError(
+                        f"Could not determine model class for item (missing _type and no default): {item}"
+                    )
 
                 instance = self._hydrate_recursive(item, model_class, model_map)
                 self.session.add(instance)
                 instances.append(instance)
             except Exception as e:
-                self.logger.error(f"Failed to hydrate item directly: {e}", exc_info=True)
+                self.logger.error(
+                    f"Failed to hydrate item directly: {e}", exc_info=True
+                )
                 raise ValueError(f"Direct hydration failed: {e}") from e
         return instances
 
     def _hydrate_recursive(
-        self, 
-        data: Dict[str, Any], 
+        self,
+        data: Dict[str, Any],
         model_class: Type[SQLModel],
-        model_map: Dict[str, Type[SQLModel]]
+        model_map: Dict[str, Type[SQLModel]],
     ) -> SQLModelInstance:
         """
         Recursively hydrates an instance and its relationships.
@@ -89,23 +99,23 @@ class DirectHydrator:
         # 1. Identify relationship fields
         mapper = inspect(model_class)
         relationships = {r.key: r for r in mapper.relationships}
-        
+
         # 2. Separate scalar data from relationship data
         scalar_data = {}
         relation_data = {}
-        
+
         for k, v in data.items():
             if k in relationships:
                 relation_data[k] = v
             else:
                 scalar_data[k] = v
-        
+
         pk_field_name = None
         for field_name, model_field in model_class.model_fields.items():
             if getattr(model_field, "primary_key", False):
                 pk_field_name = field_name
                 break
-        
+
         # Capture Original PK
         if pk_field_name and pk_field_name in scalar_data:
             original_pk = scalar_data[pk_field_name]
@@ -113,54 +123,58 @@ class DirectHydrator:
                 # We store it temporarily, will map to instance after creation
                 # Note: We need the type name. Assuming _type is in data or model_class.__name__
                 type_name = data.get("_type", model_class.__name__)
-                self.original_pk_map[(type_name, original_pk)] = None 
-                
+                self.original_pk_map[(type_name, original_pk)] = None
+
             del scalar_data[pk_field_name]
 
         if "_type" in scalar_data:
             del scalar_data["_type"]
-        
+
         instance = model_class.model_validate(scalar_data)
-        
+
         # Map original PK to instance
-        if pk_field_name and pk_field_name in data: # check original data
-             original_pk = data[pk_field_name]
-             if original_pk is not None:
-                 type_name = data.get("_type", model_class.__name__)
-                 self.original_pk_map[(type_name, original_pk)] = instance
-        
+        if pk_field_name and pk_field_name in data:  # check original data
+            original_pk = data[pk_field_name]
+            if original_pk is not None:
+                type_name = data.get("_type", model_class.__name__)
+                self.original_pk_map[(type_name, original_pk)] = instance
+
         self.all_instances.append(instance)
-        
+
         # 4. Populate relationships
         for rel_key, rel_value in relation_data.items():
             if rel_value is None:
                 setattr(instance, rel_key, None)
                 continue
-                
+
             rel_prop = relationships[rel_key]
             target_class = rel_prop.mapper.class_
-                
+
             if isinstance(rel_value, list):
                 # One-to-Many / Many-to-Many
                 related_instances = []
                 for child_data in rel_value:
                     if isinstance(child_data, dict):
-                         # Handle polymorphism in child
+                        # Handle polymorphism in child
                         child_class = target_class
                         if "_type" in child_data and child_data["_type"] in model_map:
-                             child_class = model_map[child_data["_type"]]
-                        
-                        child_instance = self._hydrate_recursive(child_data, child_class, model_map)
+                            child_class = model_map[child_data["_type"]]
+
+                        child_instance = self._hydrate_recursive(
+                            child_data, child_class, model_map
+                        )
                         related_instances.append(child_instance)
                 setattr(instance, rel_key, related_instances)
-                
+
             elif isinstance(rel_value, dict):
                 # Many-to-One / One-to-One
                 child_class = target_class
                 if "_type" in rel_value and rel_value["_type"] in model_map:
-                     child_class = model_map[rel_value["_type"]]
-                
-                child_instance = self._hydrate_recursive(rel_value, child_class, model_map)
+                    child_class = model_map[rel_value["_type"]]
+
+                child_instance = self._hydrate_recursive(
+                    rel_value, child_class, model_map
+                )
                 setattr(instance, rel_key, child_instance)
 
         return instance
@@ -173,9 +187,13 @@ class SQLAlchemyHydrator:
     then link their relationships using temporary IDs.
     """
 
-    def __init__(self, session: Session, logger: Optional[logging.Logger] = None,
-                 original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = None,
-                 all_instances: List[SQLModelInstance] = None):
+    def __init__(
+        self,
+        session: Session,
+        logger: Optional[logging.Logger] = None,
+        original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = None,
+        all_instances: List[SQLModelInstance] = None,
+    ):
         """
         Initializes the Hydrator.
 
@@ -304,7 +322,9 @@ class SQLAlchemyHydrator:
             # Store the original PK value for later foreign key resolution
             original_pk = filtered_data[pk_field_name]
             if original_pk is not None:
-                self.original_pk_map[(_type, original_pk)] = None # Will be set to instance later
+                self.original_pk_map[(_type, original_pk)] = (
+                    None  # Will be set to instance later
+                )
             del filtered_data[pk_field_name]
 
         try:
@@ -313,12 +333,12 @@ class SQLAlchemyHydrator:
             raise ValueError(
                 f"Failed to instantiate/validate SQLModel '{_type}' for _temp_id '{_temp_id}': {e}"
             ) from e
-            
+
         # Update the original_pk_map with the actual instance
         if pk_field_name and pk_field_name in entity_data:
-             original_pk = entity_data[pk_field_name]
-             if original_pk is not None:
-                 self.original_pk_map[(_type, original_pk)] = instance
+            original_pk = entity_data[pk_field_name]
+            if original_pk is not None:
+                self.original_pk_map[(_type, original_pk)] = instance
 
         self._generate_pk_if_needed(instance, model_class)
         self.temp_id_to_instance_map[_temp_id] = instance
@@ -488,7 +508,7 @@ def persist_objects(
 
 class ResultProcessor:
     """Handles hydration and persistence of extraction results."""
-    
+
     def __init__(
         self,
         model_registry: ModelRegistry,
@@ -500,7 +520,7 @@ class ResultProcessor:
         self.logger = logger
         self.original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = {}
         self.all_hydrated_instances: List[SQLModelInstance] = []
-    
+
     def hydrate(
         self,
         results: List[Dict[str, Any]],
@@ -509,7 +529,7 @@ class ResultProcessor:
     ) -> List[Any]:
         """
         Hydrates dictionaries into SQLModel objects.
-        
+
         Args:
             results: List of dictionaries to hydrate.
             db_session: Optional SQLAlchemy session.
@@ -518,58 +538,72 @@ class ResultProcessor:
         """
         if not results:
             return []
-        
+
         session = self._get_or_create_session(db_session)
-        
+
         try:
             self.logger.info(f"Hydrating {len(results)} objects...")
-            
+
             # Determine Strategy based on data content
             first_item = results[0]
             use_direct_hydration = False
-            
+
             # If _temp_id is missing, we must use DirectHydrator (Graph Reconstruction requires _temp_id)
             if "_temp_id" not in first_item:
                 use_direct_hydration = True
-            
+
             # If default_model_type is explicitly provided, we assume DirectHydrator
             if default_model_type:
                 use_direct_hydration = True
 
             if use_direct_hydration:
-                self.logger.info(f"Using DirectHydrator (default_model_type={default_model_type or 'Auto-detect'})")
-                
+                self.logger.info(
+                    f"Using DirectHydrator (default_model_type={default_model_type or 'Auto-detect'})"
+                )
+
                 default_model_class = None
                 if default_model_type:
-                    default_model_class = self.model_registry.model_map.get(default_model_type)
+                    default_model_class = self.model_registry.model_map.get(
+                        default_model_type
+                    )
                 if not default_model_class:
                     default_model_class = self.model_registry.root_model
-                
-                hydrator = DirectHydrator(session, self.logger, self.original_pk_map, self.all_hydrated_instances)
+
+                hydrator = DirectHydrator(
+                    session,
+                    self.logger,
+                    self.original_pk_map,
+                    self.all_hydrated_instances,
+                )
                 hydrated = hydrator.hydrate(
-                    results, 
+                    results,
                     model_map=self.model_registry.model_map,
-                    default_model_class=default_model_class
+                    default_model_class=default_model_class,
                 )
             else:
                 self.logger.info("Using SQLAlchemyHydrator for graph reconstruction")
-                hydrator = SQLAlchemyHydrator(session=session, logger=self.logger, original_pk_map=self.original_pk_map, all_instances=self.all_hydrated_instances)
+                hydrator = SQLAlchemyHydrator(
+                    session=session,
+                    logger=self.logger,
+                    original_pk_map=self.original_pk_map,
+                    all_instances=self.all_hydrated_instances,
+                )
                 hydrated = hydrator.hydrate(results, self.model_registry.model_map)
                 self.all_hydrated_instances.extend(hydrated)
 
             self.analytics_collector.record_hydration_success(len(hydrated))
             self.logger.info(f"Successfully hydrated {len(hydrated)} objects")
-            
+
             return hydrated
-        
+
         except Exception as e:
             self.analytics_collector.record_hydration_failure()
             raise HydrationError(f"Hydration failed: {e}") from e
-        
+
         finally:
             if db_session is None and session:
                 session.close()
-    
+
     def persist(self, objects: List[Any], db_session: Session):
         """Persists objects to database."""
         if not objects:
@@ -577,7 +611,7 @@ class ResultProcessor:
             return
 
         self._link_foreign_keys(objects)
-        
+
         try:
             persist_objects(
                 db_session=db_session,
@@ -591,18 +625,22 @@ class ResultProcessor:
             db_session.rollback()
             raise WorkflowError(f"Persistence failed: {e}") from e
 
-    def _link_foreign_keys(self, instances: Optional[List[SQLModelInstance]] = None) -> None:
+    def _link_foreign_keys(
+        self, instances: Optional[List[SQLModelInstance]] = None
+    ) -> None:
         """
         Links foreign keys for all hydrated instances before persisting.
         """
-        target_instances = instances if instances is not None else self.all_hydrated_instances
+        target_instances = (
+            instances if instances is not None else self.all_hydrated_instances
+        )
         if self.original_pk_map:
             self._perform_fk_recovery(target_instances, self.original_pk_map)
-    
+
     def _perform_fk_recovery(
-        self, 
-        instances: List[SQLModelInstance], 
-        original_pk_map: Dict[tuple[str, Any], SQLModelInstance]
+        self,
+        instances: List[SQLModelInstance],
+        original_pk_map: Dict[tuple[str, Any], SQLModelInstance],
     ) -> None:
         """
         Scans all hydrated instances for Foreign Key fields that are set (not None)
@@ -613,31 +651,31 @@ class ResultProcessor:
         for instance in instances:
             model_class = type(instance)
             mapper = inspect(model_class)
-            
+
             for rel in mapper.relationships:
                 # We only care about Many-to-One (FK holder)
                 if rel.direction.name != "MANYTOONE":
                     continue
-                
+
                 if not rel.local_remote_pairs:
                     continue
-                    
+
                 local_col, remote_col = rel.local_remote_pairs[0]
-                
+
                 # Check if FK field has a value on the instance
                 fk_value = getattr(instance, local_col.name, None)
                 if fk_value is None:
                     continue
-                
+
                 # Check if relationship is already set
                 current_rel_value = getattr(instance, rel.key, None)
                 if current_rel_value is not None:
                     continue
-                    
+
                 # Try to find target instance in map
                 target_class = rel.mapper.class_
                 target_type = target_class.__name__
-                
+
                 key = (target_type, fk_value)
                 if key in original_pk_map:
                     target_instance = original_pk_map[key]
@@ -647,15 +685,17 @@ class ResultProcessor:
                         f"Recovered relationship {model_class.__name__}.{rel.key} "
                         f"using FK {fk_value} -> {target_type}"
                     )
-        
+
         if count_recovered > 0:
-            self.logger.info(f"Universal FK Recovery: Restored {count_recovered} relationships.")
+            self.logger.info(
+                f"Universal FK Recovery: Restored {count_recovered} relationships."
+            )
 
     def _get_or_create_session(self, db_session: Optional[Session]) -> Session:
         """Creates temporary in-memory session if none provided."""
         if db_session:
             return db_session
-        
+
         engine = create_engine("sqlite:///:memory:")
         SQLModel.metadata.create_all(engine)
         return Session(engine)

@@ -1,11 +1,12 @@
 import json
 from typing import List, Dict, Any, Optional
 
+
 def generate_entity_counting_system_prompt(
-    model_names: list[str], 
+    model_names: list[str],
     schema_json: str = None,
     custom_counting_context: str = "",
-    previous_entities: Optional[List[Dict[str, Any]]] = None
+    previous_entities: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """
     Generates a system prompt for counting entities in the provided documents.

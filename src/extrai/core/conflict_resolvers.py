@@ -5,7 +5,10 @@ from extrai.utils.flattening_utils import Path, JSONValue
 from difflib import SequenceMatcher
 
 # Define conflict resolution strategies
-ConflictResolutionStrategy = Callable[[Path, List[JSONValue], Optional[List[float]]], Optional[JSONValue]]
+ConflictResolutionStrategy = Callable[
+    [Path, List[JSONValue], Optional[List[float]]], Optional[JSONValue]
+]
+
 
 def default_conflict_resolver(
     path: Path, values: List[JSONValue], weights: Optional[List[float]] = None
@@ -14,6 +17,7 @@ def default_conflict_resolver(
     Default conflict resolution: if no consensus, omit the field.
     """
     return None
+
 
 def prefer_most_common_resolver(
     _path: Path, values: List[JSONValue], weights: Optional[List[float]] = None
@@ -24,7 +28,7 @@ def prefer_most_common_resolver(
     """
     if not values:
         return None
-    
+
     if weights and len(weights) == len(values):
         # Weighted voting
         weighted_counts: Dict[Any, float] = {}
@@ -32,9 +36,9 @@ def prefer_most_common_resolver(
         # But JSONValue can be complex. Typically conflict resolution is on leaves (primitives).
         # Flattening utils usually produce primitives at leaves, but lists can be values if not recursed?
         # Assuming primitives for now (str, int, float, bool, None).
-        
+
         for val, w in zip(values, weights):
-            # If val is unhashable, we can't key it easily. 
+            # If val is unhashable, we can't key it easily.
             # Fallback to string repr or identity if needed, but for now assume hashable.
             try:
                 weighted_counts[val] = weighted_counts.get(val, 0.0) + w
@@ -44,7 +48,7 @@ def prefer_most_common_resolver(
                 # Or convert to tuple?
                 # Let's rely on standard Counter behavior for fallback.
                 pass
-        
+
         if weighted_counts:
             # Pick value with max weight
             # Break ties by first occurrence (insertion order in weighted_counts)
@@ -64,8 +68,10 @@ def prefer_most_common_resolver(
         # Fallback for unhashable
         return values[0]
 
+
 def levenshtein_similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
+
 
 class SimilarityClusterResolver:
     """
@@ -81,7 +87,9 @@ class SimilarityClusterResolver:
         self.similarity_threshold = similarity_threshold
         self.scorer = scorer
 
-    def __call__(self, path: Path, values: List[JSONValue], weights: Optional[List[float]] = None) -> Optional[JSONValue]:
+    def __call__(
+        self, path: Path, values: List[JSONValue], weights: Optional[List[float]] = None
+    ) -> Optional[JSONValue]:
         if not values:
             return None
 
@@ -122,16 +130,20 @@ class SimilarityClusterResolver:
         # 3. Find the best cluster
         # If weights are provided, pick the cluster with the highest total weight.
         # Otherwise, pick the largest cluster.
-        
+
         if weights and len(weights) == n:
+
             def cluster_weight(indices):
                 return sum(weights[i] for i in indices)
+
             best_cluster_indices = max(clusters, key=cluster_weight)
         else:
             best_cluster_indices = max(clusters, key=len)
 
         # 4. Pick the representative from the best cluster
         cluster_values = [values[i] for i in best_cluster_indices]
-        cluster_weights = [weights[i] for i in best_cluster_indices] if weights else None
+        cluster_weights = (
+            [weights[i] for i in best_cluster_indices] if weights else None
+        )
 
         return prefer_most_common_resolver(path, cluster_values, cluster_weights)

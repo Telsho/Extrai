@@ -1,9 +1,8 @@
 import unittest
 import json
 from extrai.core.prompts.common import generate_user_prompt_for_docs
-from extrai.core.prompts.extraction import (
-    generate_system_prompt
-)
+from extrai.core.prompts.extraction import generate_system_prompt
+
 
 class TestExtractionPrompts(unittest.TestCase):
     def setUp(self):
@@ -225,7 +224,7 @@ class TestExtractionPrompts(unittest.TestCase):
         self.assertIn(doc1, prompt)
         self.assertIn(doc2, prompt)
         self.assertIn("---END OF DOCUMENT---", prompt)
-    
+
     def test_generate_system_prompt_with_non_json_example_string(self):
         """
         Test system prompt with an extraction_example_json that is a non-empty,
@@ -294,24 +293,22 @@ class TestExtractionPrompts(unittest.TestCase):
     def test_generate_system_prompt_includes_ordering_and_id_rules(self):
         """Test that the system prompt includes instructions for ordering and semantic IDs."""
         prompt = generate_system_prompt(schema_json=self.sample_schema_json_str)
-        
+
         # Check for ordering instruction
         self.assertIn(
-            "Maintain the order of items as they appear in the source text", 
+            "Maintain the order of items as they appear in the source text",
             prompt,
-            "Prompt missing instruction about preserving order"
+            "Prompt missing instruction about preserving order",
         )
-        
+
         # Check for semantic ID instruction
         self.assertIn(
             "based on the entity's key attributes",
             prompt,
-            "Prompt missing instruction about semantic IDs"
+            "Prompt missing instruction about semantic IDs",
         )
         self.assertIn(
-            "E.g., `user_john_doe`",
-            prompt,
-            "Prompt missing example of semantic IDs"
+            "E.g., `user_john_doe`", prompt, "Prompt missing example of semantic IDs"
         )
 
     def test_generate_user_prompt_with_custom_context(self):
@@ -321,6 +318,7 @@ class TestExtractionPrompts(unittest.TestCase):
         prompt = generate_user_prompt_for_docs([doc1], custom_context=custom_ctx)
         self.assertIn(custom_ctx, prompt)
         self.assertIn(doc1, prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

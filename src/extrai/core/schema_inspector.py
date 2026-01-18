@@ -16,7 +16,7 @@ from extrai.utils.type_mapping import (
 
 class SchemaInspector:
     """Helper class to inspect SQLAlchemy models and generate LLM schemas."""
-    
+
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
 
@@ -95,12 +95,17 @@ class SchemaInspector:
                     involved_fk_columns.add(str(col))
         return involved_fk_columns
 
-    def _get_fks_from_synchronize_pairs(self, rel_prop: RelationshipProperty) -> Set[str]:
+    def _get_fks_from_synchronize_pairs(
+        self, rel_prop: RelationshipProperty
+    ) -> Set[str]:
         """Handles relationships that use synchronize_pairs."""
         involved_fk_columns: Set[str] = set()
         if rel_prop.synchronize_pairs:
             for local_join_col, remote_join_col in rel_prop.synchronize_pairs:
-                if hasattr(local_join_col, "foreign_keys") and local_join_col.foreign_keys:
+                if (
+                    hasattr(local_join_col, "foreign_keys")
+                    and local_join_col.foreign_keys
+                ):
                     involved_fk_columns.add(str(local_join_col))
                 if (
                     hasattr(remote_join_col, "foreign_keys")
@@ -109,7 +114,9 @@ class SchemaInspector:
                     involved_fk_columns.add(str(remote_join_col))
         return involved_fk_columns
 
-    def _get_fks_from_direct_foreign_keys(self, rel_prop: RelationshipProperty) -> Set[str]:
+    def _get_fks_from_direct_foreign_keys(
+        self, rel_prop: RelationshipProperty
+    ) -> Set[str]:
         """Handles relationships that have direct foreign_keys."""
         involved_fk_columns: Set[str] = set()
         if hasattr(rel_prop, "foreign_keys") and rel_prop.foreign_keys is not None:
@@ -148,7 +155,9 @@ class SchemaInspector:
             if rel_prop.secondary is not None
             else None,
             "local_columns": [str(c) for c in rel_prop.local_columns],
-            "remote_columns_in_join": [str(pair[1]) for pair in rel_prop.local_remote_pairs]
+            "remote_columns_in_join": [
+                str(pair[1]) for pair in rel_prop.local_remote_pairs
+            ]
             if rel_prop.local_remote_pairs
             else [],
             "foreign_key_constraints_involved": sorted(involved_fk_columns),
@@ -193,10 +202,14 @@ class SchemaInspector:
             getattr(table_obj, "info", None) if isinstance(table_obj, Table) else None
         )
         table_comment = (
-            getattr(table_obj, "comment", None) if isinstance(table_obj, Table) else None
+            getattr(table_obj, "comment", None)
+            if isinstance(table_obj, Table)
+            else None
         )
 
-        table_name_str = getattr(model_class, "__tablename__", model_class.__name__.lower())
+        table_name_str = getattr(
+            model_class, "__tablename__", model_class.__name__.lower()
+        )
         if hasattr(table_obj, "name") and table_obj.name:
             table_name_str = table_obj.name
 
@@ -313,8 +326,10 @@ class SchemaInspector:
         if col_name in pydantic_fields:
             field_pydantic_info = pydantic_fields[col_name]
             if field_pydantic_info.annotation:
-                pydantic_derived_type_str = get_python_type_str_from_pydantic_annotation(
-                    field_pydantic_info.annotation
+                pydantic_derived_type_str = (
+                    get_python_type_str_from_pydantic_annotation(
+                        field_pydantic_info.annotation
+                    )
                 )
                 if (
                     pydantic_derived_type_str
@@ -359,10 +374,7 @@ class SchemaInspector:
         return col_name, formatted_string
 
     def _process_relationship_for_llm_schema(
-        self,
-        rel_name: str,
-        rel_data: Dict[str, Any],
-        custom_descs: Dict[str, str]
+        self, rel_name: str, rel_data: Dict[str, Any], custom_descs: Dict[str, str]
     ) -> Optional[Tuple[str, str]]:
         """Processes a single relationship to generate its LLM schema representation."""
         related_model_name = rel_data.get("related_model_name", "UnknownRelatedModel")
@@ -414,8 +426,7 @@ class SchemaInspector:
         return ref_field_name_for_llm, formatted_string
 
     def _generate_model_level_description(
-        self,
-        model_name: str, raw_schema: Dict[str, Any], custom_descs: Dict[str, str]
+        self, model_name: str, raw_schema: Dict[str, Any], custom_descs: Dict[str, str]
     ) -> str:
         """Generates the complete model-level description block."""
         description, other_info = self._get_prioritized_description(
@@ -475,17 +486,21 @@ class SchemaInspector:
 
             # Get pydantic model fields if applicable
             pydantic_model_fields = {}
-            if hasattr(model_class, "model_fields") and issubclass(model_class, SQLModel):
+            if hasattr(model_class, "model_fields") and issubclass(
+                model_class, SQLModel
+            ):
                 pydantic_model_fields = model_class.model_fields
 
             fields_info = {}
             for col_name, col_data in raw_schema.get("columns", {}).items():
-                processed_col_name, formatted_col_string = self._process_column_for_llm_schema(
-                    col_name,
-                    col_data,
-                    pydantic_model_fields,
-                    model_custom_descs,
-                    model_name,
+                processed_col_name, formatted_col_string = (
+                    self._process_column_for_llm_schema(
+                        col_name,
+                        col_data,
+                        pydantic_model_fields,
+                        model_custom_descs,
+                        model_name,
+                    )
                 )
                 fields_info[processed_col_name] = formatted_col_string
 

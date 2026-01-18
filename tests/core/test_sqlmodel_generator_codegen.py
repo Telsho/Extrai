@@ -23,6 +23,7 @@ from tests.core.helpers.sqlmodel_generator_test_utils import (
     get_class_def_node,
 )
 
+
 class TestSQLModelCodeGeneratorCodeGen:
     @pytest.fixture(autouse=True)
     def clear_sqlmodel_metadata(self):

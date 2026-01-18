@@ -61,11 +61,15 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
         self.mock_inspector = self.mock_inspector_cls.return_value
 
         # Define what the mocked inspector methods will return
-        self.mock_inspector.discover_sqlmodels_from_root.return_value = {self.mock_output_model}
+        self.mock_inspector.discover_sqlmodels_from_root.return_value = {
+            self.mock_output_model
+        }
         self.expected_schema_str = json.dumps(
             self.mock_output_model.model_json_schema()
         )
-        self.mock_inspector.generate_llm_schema_from_models.return_value = self.expected_schema_str
+        self.mock_inspector.generate_llm_schema_from_models.return_value = (
+            self.expected_schema_str
+        )
 
         self.generator = ExampleJSONGenerator(
             llm_client=self.mock_llm_client,
@@ -86,7 +90,9 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
 
     def test_initialization_success(self):
         """Test that the ExampleJSONGenerator initializes correctly with the new schema logic."""
-        self.mock_inspector.discover_sqlmodels_from_root.assert_called_once_with(self.mock_output_model)
+        self.mock_inspector.discover_sqlmodels_from_root.assert_called_once_with(
+            self.mock_output_model
+        )
         self.mock_inspector.generate_llm_schema_from_models.assert_called_once_with(
             initial_model_classes={self.mock_output_model}
         )
@@ -160,7 +166,9 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
         )
 
         # Configure mock to raise exception
-        self.mock_inspector.discover_sqlmodels_from_root.side_effect = Exception("Discovery failed")
+        self.mock_inspector.discover_sqlmodels_from_root.side_effect = Exception(
+            "Discovery failed"
+        )
 
         with self.assertRaisesRegex(
             ConfigurationError,
@@ -171,7 +179,7 @@ class TestExampleJSONGenerator(unittest.IsolatedAsyncioTestCase):
                 output_model=self.mock_output_model,
                 max_validation_retries_per_revision=1,
             )
-        
+
         # Reset side effect for other tests (though not strictly needed as tests are isolated)
         self.mock_inspector.discover_sqlmodels_from_root.side_effect = None
 

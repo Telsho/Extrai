@@ -1,5 +1,6 @@
 from typing import List
 
+
 def generate_user_prompt_for_docs(
     documents: List[str], custom_context: str = ""
 ) -> str:

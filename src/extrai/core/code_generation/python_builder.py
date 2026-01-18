@@ -1,6 +1,7 @@
 import keyword
 from typing import Any, Dict, Set, List, Optional
 
+
 class ImportManager:
     """Manages imports for the generated code, handling consolidation."""
 
@@ -38,7 +39,8 @@ class ImportManager:
             if custom_imp.startswith("from sqlmodel"):
                 try:
                     items = {
-                        item.strip() for item in custom_imp.split(" import ")[1].split(",")
+                        item.strip()
+                        for item in custom_imp.split(" import ")[1].split(",")
                     }
                     self.sqlmodel_imports.update(items)
                 except IndexError:
@@ -46,7 +48,8 @@ class ImportManager:
             elif custom_imp.startswith("from typing"):
                 try:
                     items = {
-                        item.strip() for item in custom_imp.split(" import ")[1].split(",")
+                        item.strip()
+                        for item in custom_imp.split(" import ")[1].split(",")
                     }
                     self.typing_imports.update(items)
                 except IndexError:
@@ -270,7 +273,7 @@ class ClassCodeBuilder:
 
 class PythonModelBuilder:
     """Facade for generating Python code for SQLModels from description dictionaries."""
-    
+
     def generate_model_code(self, model_descriptions: List[Dict[str, Any]]) -> str:
         """
         Generates Python code for the provided model descriptions.

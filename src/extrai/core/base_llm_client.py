@@ -94,7 +94,7 @@ class BaseLLMClient(ABC):
         user_prompt: str,
         response_model: Type[Any],
         analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Any:
         """
         Generates a structured output directly from the LLM.
@@ -327,13 +327,15 @@ class BaseLLMClient(ABC):
         """
         raise NotImplementedError("Batch processing is not supported by this provider.")
 
-    def extract_content_from_batch_response(self, response: Dict[str, Any]) -> Optional[str]:
+    def extract_content_from_batch_response(
+        self, response: Dict[str, Any]
+    ) -> Optional[str]:
         """
         Extracts the text content from a single item in a batch response file.
-        
+
         Args:
             response: A dictionary representing a single line/item from the batch output.
-            
+
         Returns:
             The extracted content string, or None if extraction failed.
         """

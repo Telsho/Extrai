@@ -37,8 +37,12 @@ class TestHierarchicalExtractor(unittest.IsolatedAsyncioTestCase):
         )
 
         mock_inspector = MockSchemaInspector.return_value
-        mock_inspector.discover_sqlmodels_from_root.return_value = self.mock_discovered_sqlmodels
-        mock_inspector.generate_llm_schema_from_models.return_value = self.mock_prompt_llm_schema_str
+        mock_inspector.discover_sqlmodels_from_root.return_value = (
+            self.mock_discovered_sqlmodels
+        )
+        mock_inspector.generate_llm_schema_from_models.return_value = (
+            self.mock_prompt_llm_schema_str
+        )
 
     def tearDown(self):
         self.db_session.close()
@@ -69,7 +73,6 @@ class TestHierarchicalExtractor(unittest.IsolatedAsyncioTestCase):
                 return [child_entity]
             return []
 
-
         orchestrator.model_registry.inspector.discover_sqlmodels_from_root = mock.Mock(
             return_value=[ParentModel, ChildModel]
         )
@@ -81,7 +84,9 @@ class TestHierarchicalExtractor(unittest.IsolatedAsyncioTestCase):
                 side_effect=mock_extraction_cycle,
             ) as mock_run_cycle,
             mock.patch.object(
-                orchestrator.pipeline.context_preparer, "prepare_example", new_callable=AsyncMock
+                orchestrator.pipeline.context_preparer,
+                "prepare_example",
+                new_callable=AsyncMock,
             ) as mock_prepare,
             mock.patch.object(orchestrator.result_processor, "hydrate") as mock_hydrate,
         ):
@@ -96,11 +101,11 @@ class TestHierarchicalExtractor(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(mock_run_cycle.call_count, 2)
 
             call_args = mock_run_cycle.call_args_list[1]
-            second_call_system_prompt = call_args.kwargs.get("system_prompt") or call_args.args[0]
-            self.assertIn("'ChildModel'", second_call_system_prompt)
-            self.assertIn(
-                "Parent 1", second_call_system_prompt
+            second_call_system_prompt = (
+                call_args.kwargs.get("system_prompt") or call_args.args[0]
             )
+            self.assertIn("'ChildModel'", second_call_system_prompt)
+            self.assertIn("Parent 1", second_call_system_prompt)
 
             mock_hydrate.assert_called_once()
             hydrator_arg = mock_hydrate.call_args[0][0]
@@ -120,7 +125,9 @@ class TestHierarchicalExtractor(unittest.IsolatedAsyncioTestCase):
             LLMInteractionError,
             "An unexpected error occurred during LLM interaction: LLM client failed",
         ):
-            await orchestrator.pipeline.llm_runner.run_extraction_cycle("system", "user")
+            await orchestrator.pipeline.llm_runner.run_extraction_cycle(
+                "system", "user"
+            )
 
         self.assertEqual(self.mock_llm_client.call_count, 1)
 

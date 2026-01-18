@@ -404,7 +404,7 @@ def test_process_and_validate_raw_json_no_unwrap():
     """Tests that attempt_unwrap=False prevents unwrapping."""
     # A wrapped structure that would normally be unwrapped
     raw_content = make_json_str({"result": {"key": "value"}})
-    
+
     # With attempt_unwrap=False, it should return the raw dict
     result = process_and_validate_raw_json(
         raw_content, "test_no_unwrap", attempt_unwrap=False

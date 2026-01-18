@@ -1,10 +1,12 @@
 from typing import List, Union
 from .base_llm_client import BaseLLMClient
 
+
 class ClientRotator:
     """
     Manages rotation through a list of LLM clients.
     """
+
     def __init__(self, clients: Union[BaseLLMClient, List[BaseLLMClient]]):
         self.clients = clients if isinstance(clients, list) else [clients]
         if not self.clients:
@@ -16,7 +18,7 @@ class ClientRotator:
         client = self.clients[self._current_index]
         self._current_index = (self._current_index + 1) % len(self.clients)
         return client
-    
+
     @property
     def current_client(self) -> BaseLLMClient:
         """Returns the current client without advancing rotation."""

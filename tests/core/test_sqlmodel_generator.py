@@ -18,6 +18,7 @@ from extrai.core.analytics_collector import (
 )
 from tests.core.helpers.mock_llm_clients import MockLLMClientSqlGen
 
+
 class TestSQLModelCodeGeneratorLLMIntegrationRefactored:
     @pytest.fixture(autouse=True)
     def clear_sqlmodel_metadata(self):

@@ -73,7 +73,7 @@ def _unwrap_llm_output(data: Any) -> Any:
     if isinstance(data, dict):
         if "_type" in data:
             return data
-        
+
         if len(data) == 1:
             return next(iter(data.values()))
 

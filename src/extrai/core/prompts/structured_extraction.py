@@ -1,6 +1,7 @@
 import json
 from typing import Optional, List, Dict, Any
 
+
 def generate_structured_system_prompt(
     custom_extraction_process: str = "",
     custom_extraction_guidelines: str = "",
@@ -62,7 +63,7 @@ You are an expert data extraction AI. Your goal is to extract structured data fr
     instructions_parts = []
     if custom_extraction_process:
         instructions_parts.append(custom_extraction_process)
-    
+
     if custom_context:
         instructions_parts.append(f"CONTEXT:\n{custom_context}")
 
@@ -73,15 +74,15 @@ You are an expert data extraction AI. Your goal is to extract structured data fr
             "IMPORTANT: Use the 'id' values from the entities above to populate foreign key fields "
             "(e.g. 'recipe_id') in the new entities you extract. Ensure correct linking."
         )
-    
+
     if custom_extraction_guidelines:
         instructions_parts.append(f"GUIDELINES:\n{custom_extraction_guidelines}")
-    
+
     if extraction_example_json:
         instructions_parts.append(f"EXAMPLE REFERENCE:\n{extraction_example_json}")
 
     if instructions_parts:
         parts.append("# CUSTOM INSTRUCTIONS")
         parts.append("\n\n".join(instructions_parts))
-    
+
     return "\n\n".join(parts)
