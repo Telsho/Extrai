@@ -13,6 +13,7 @@ readme = "README.md"
 dependencies = [
     "jsonschema==4.25.1",
     "openai==2.9.0",
+    "google-genai>=1.59.0",
     "pydantic==2.12.5",
     "sqlalchemy==2.0.44",
     "sqlmodel==0.0.27",
