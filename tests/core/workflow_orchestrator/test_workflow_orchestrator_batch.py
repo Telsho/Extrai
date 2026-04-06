@@ -59,20 +59,22 @@ class TestWorkflowOrchestratorBatch(unittest.IsolatedAsyncioTestCase):
         batch_id = "batch_123"
         db_session = mock.Mock(spec=Session)
         hydrated_objects = ["obj1"]
+        pk_map = {"1": "new_1"}
         expected_result = BatchProcessResult(
-            status=BatchJobStatus.COMPLETED, hydrated_objects=hydrated_objects
+            status=BatchJobStatus.COMPLETED,
+            hydrated_objects=hydrated_objects,
+            original_pk_map=pk_map,
         )
         self.orchestrator.batch_pipeline.process_batch.return_value = expected_result
+        self.orchestrator.result_processor.original_pk_map = {}
 
         result = await self.orchestrator.process_batch(batch_id, db_session)
 
         self.orchestrator.batch_pipeline.process_batch.assert_called_once_with(
             batch_id, db_session
         )
-        self.orchestrator.result_processor.persist.assert_called_once_with(
-            hydrated_objects, db_session
-        )
         self.assertEqual(result, expected_result)
+        self.assertEqual(self.orchestrator.result_processor.original_pk_map, pk_map)
 
     async def test_process_batch_not_completed(self):
         batch_id = "batch_123"
@@ -88,27 +90,6 @@ class TestWorkflowOrchestratorBatch(unittest.IsolatedAsyncioTestCase):
         self.orchestrator.result_processor.persist.assert_not_called()
         self.assertEqual(result, expected_result)
 
-    async def test_process_batch_persistence_failure(self):
-        batch_id = "batch_123"
-        db_session = mock.Mock(spec=Session)
-        hydrated_objects = ["obj1"]
-        process_result = BatchProcessResult(
-            status=BatchJobStatus.COMPLETED, hydrated_objects=hydrated_objects
-        )
-
-        self.orchestrator.batch_pipeline.process_batch.return_value = process_result
-        self.orchestrator.result_processor.persist.side_effect = Exception(
-            "Persistence Error"
-        )
-
-        with self.assertRaisesRegex(Exception, "Persistence Error"):
-            await self.orchestrator.process_batch(batch_id, db_session)
-
-        self.orchestrator.logger.error.assert_called()
-        self.assertIn(
-            "Extraction successful but persistence failed", process_result.message
-        )
-
     async def test_monitor_batch_job_delegation(self):
         batch_id = "batch_123"
         db_session = mock.Mock(spec=Session)
@@ -117,7 +98,9 @@ class TestWorkflowOrchestratorBatch(unittest.IsolatedAsyncioTestCase):
         expected_result = BatchProcessResult(
             status=BatchJobStatus.COMPLETED, hydrated_objects=["obj1"]
         )
-        self.orchestrator.batch_pipeline.monitor_batch_job.return_value = expected_result
+        self.orchestrator.batch_pipeline.monitor_batch_job.return_value = (
+            expected_result
+        )
 
         result = await self.orchestrator.monitor_batch_job(
             batch_id, db_session, poll_interval

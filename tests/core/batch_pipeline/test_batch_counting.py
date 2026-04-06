@@ -35,7 +35,9 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         self.mock_logger = MagicMock()
 
         with (
-            patch("extrai.core.batch.batch_pipeline.ClientRotator") as MockClientRotator,
+            patch(
+                "extrai.core.batch.batch_pipeline.ClientRotator"
+            ) as MockClientRotator,
             patch(
                 "extrai.core.batch.batch_pipeline.ExtractionContextPreparer"
             ) as MockContextPreparer,
@@ -56,14 +58,14 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
             self.pipeline.prompt_builder = MockBuilder.return_value
             self.pipeline.entity_counter = MockCounter.return_value
             self.pipeline.consensus_runner = MockConsensus.return_value
-            
+
             # Since we are testing process_batch logic which is delegated to processor,
             # we need to ensure the processor uses our mocked components/config.
             # The processor was instantiated with these mocks in __init__, so it should be fine.
             # However, test_process_batch_counting_transition mocks `self.pipeline.entity_counter.llm_client`.
             # Since processor holds a reference to entity_counter, and we updated it on pipeline,
             # check if processor refers to the same object.
-            
+
             # pipeline.entity_counter = MockCounter.return_value sets the attribute on pipeline instance.
             # But processor.entity_counter was set during init.
             # We need to update processor's reference too.
@@ -145,10 +147,17 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         # Ensure build_prompts returns expected tuple
         self.pipeline.prompt_builder.build_prompts.return_value = ("sys", "user")
 
+        # Mock counting_consensus
+        self.pipeline.entity_counter.counting_consensus.achieve_consensus = AsyncMock(
+            return_value=[{"model": "RootModel", "description": "desc1"}]
+        )
+
         # Test process
         # We don't need to patch process_and_validate_llm_output because BatchProcessor
         # parses the JSON manually in _process_counting_completion
         result = await self.pipeline.process_batch("root_1", self.mock_session)
+        print("RESULT", result)
+        print("RESULT MESSAGE", result.message)
 
         # Verify transition
         self.assertEqual(result.status, BatchJobStatus.SUBMITTED)
@@ -161,8 +170,10 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         # Verify config updated with descriptions
         config = context.config
         self.assertIsNotNone(config.expected_entity_descriptions)
-        self.assertEqual(config.expected_entity_descriptions, ["RootModel: desc1"])
-
+        self.assertEqual(
+            config.expected_entity_descriptions,
+            [{"model": "RootModel", "description": "desc1"}],
+        )
 
 
 if __name__ == "__main__":

@@ -132,7 +132,7 @@ class TestExtractionPipeline(unittest.IsolatedAsyncioTestCase):
         await self.pipeline.extract(["doc"], count_entities=True)
 
         self.mock_logger.warning.assert_called_with(
-            "Entity counting failed: Count failed"
+            "Entity counting failed or returned None, proceeding with extraction without descriptions"
         )
 
     def test_repr(self):

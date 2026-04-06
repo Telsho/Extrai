@@ -134,9 +134,7 @@ class TestSQLModelCodeGeneratorLLMIntegrationRefactored:
                         self.generator_for_llm_tests._load_sqlmodel_description_schema()
                     )
                     assert schema == json.loads(mock_open_config["read_data"])
-                    mock_open_instance.assert_called_once_with(
-                        expected_fallback_path, "r"
-                    )
+                    mock_open_instance.assert_called_once_with(expected_fallback_path)
 
         finally:
             SQLModelCodeGenerator._SCHEMA_FILE_PATH = original_schema_path
