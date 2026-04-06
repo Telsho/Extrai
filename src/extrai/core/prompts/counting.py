@@ -1,12 +1,14 @@
 import json
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 def generate_entity_counting_system_prompt(
     model_names: list[str],
     schema_json: str = None,
     custom_counting_context: str = "",
-    previous_entities: Optional[List[Dict[str, Any]]] = None,
+    previous_entities: list[dict[str, Any]] | None = None,
+    examples: str = "",
+    conflicting_revisions: list[dict[str, Any]] | None = None,
 ) -> str:
     """
     Generates a system prompt for counting entities in the provided documents.
@@ -17,6 +19,8 @@ def generate_entity_counting_system_prompt(
                      This helps the LLM understand the structure of the entities to count.
         custom_counting_context: Optional custom context to guide the counting phase.
         previous_entities: Optional list of previously extracted entities for context.
+        examples: Optional string containing examples of the entities to count.
+        conflicting_revisions: Optional list of previous conflicting counting attempts to merge.
 
     Returns:
         A string representing the system prompt for entity counting.
@@ -40,7 +44,8 @@ You need to count the following entities: {model_list_str}.
 # PREVIOUSLY EXTRACTED ENTITIES:
 {entities_json}
 
-IMPORTANT: If the entities you are counting are related to any of the previously extracted entities above, you MUST specify the unique ID (or temp_id) of that related entity in your description string. This ensures correct linking in subsequent steps.
+IMPORTANT: If the entities you are counting are related to any of the previously extracted entities above, you MUST specify the unique ID (or temp_id) of that related entity in your description string. This ensures correct linking in subsequent steps. Therefore take a good look at the previously extracted entities and ensure they are linked correctly.
+Do not hesitate to add details to help identify those links. Also note that it's possible that there are no objects to extract!
 """
 
     prompt += f"""
@@ -51,28 +56,33 @@ To help you identify these entities correctly, here are their schema definitions
 ```
 """
 
+    if examples:
+        prompt += f"""
+# EXAMPLES:
+Here are some examples of the objects that will be extracted on the next step. Your goal is to facilitate the extraction of these objects in the future:
+{examples}
+"""
+
+    if conflicting_revisions:
+        revisions_json = json.dumps(conflicting_revisions, indent=2)
+        prompt += f"""
+# MERGE REQUIRED:
+Previous extraction attempts returned conflicting results. Here are the conflicting revisions:
+{revisions_json}
+
+Your task is to cross-reference these previous attempts with the text and provide the final, comprehensive, and correct list of entities, resolving any discrepancies.
+"""
+
     prompt += """
 # OUTPUT INSTRUCTIONS:
-1.  **Output Format:** Your output must be a single, valid JSON object.
-2.  **Keys:** The JSON object keys must be the exact names of the entities provided above.
-3.  **Values:** The values must be a list of strings, where each string is a description of the entity found.
-4.  **Order:** The order of the descriptions in the list must match the order of appearance in the document.
-5.  **Relational Detail:** If an entity relates to a previously extracted entity (e.g., a child entity belonging to a parent), your description MUST include the ID of that parent entity from the provided context.
-6.  **No Extra Text:** Do NOT include any explanations, markdown formatting, or text outside the JSON object.
-
-Example Output:
-{{
-  "Invoice": [
-      "Invoice #123 from ABC Corp with a value of 50euros",
-      "Invoice #456 from XYZ Inc with a value of 506euros",
-      "Invoice #789 from Foo Bar with a value of 30euros"
-  ],
-  "LineItem": [
-      "Item A - Widget linked to Invoice ID: invoice_123",
-      "Item B - Gadget linked to Invoice ID: invoice_123",
-      "Item C - Doohickey linked to Invoice ID: invoice_456",
-  ]
-}}
+1.  **Output Format:** Your output must be a single JSON object with a `counted_entities` array.
+2.  **Array Items:** Each item in the array must be an object containing:
+    - `model`: the exact name of the entity model
+    - `temp_id`: a unique temporary string identifier for this specific entity instance
+    - `related_ids`: a list of string identifiers (temp_id or actual id) of any related entities
+    - `description`: a detailed description of the entity found
+3.  **Order:** The order of the entities in the list should generally match the order of appearance in the document.
+4.  **Relational Detail:** If an entity relates to a previously extracted entity (e.g., a child entity belonging to a parent), you MUST include the ID of that parent entity in the `related_ids` list and optionally in the `description`.
 
 Proceed with identifying and describing the entities in the user's documents.
 """.strip()
@@ -100,6 +110,6 @@ Please count the entities in the following document(s) according to the instruct
 {combined_documents}
 
 ---
-Remember: Your output must be only a single, valid JSON object mapping entity names to counts.
+Remember: Your output must match the structured format requested (an object with a `counted_entities` array).
 """.strip()
     return prompt
