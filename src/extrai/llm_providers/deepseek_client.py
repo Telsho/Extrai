@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+
 from .generic_openai_client import GenericOpenAIClient
 
 
@@ -13,8 +13,8 @@ class DeepSeekClient(GenericOpenAIClient):
         api_key: str,
         model_name: str = "deepseek-chat",
         base_url: str = "https://api.deepseek.com",
-        temperature: Optional[float] = 0.3,
-        logger: Optional[logging.Logger] = None,
+        temperature: float | None = 0.3,
+        logger: logging.Logger | None = None,
     ):
         """
         Initializes the DeepSeekClient.

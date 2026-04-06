@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+
 from .generic_openai_client import GenericOpenAIClient
 
 
@@ -14,8 +14,8 @@ class OllamaClient(GenericOpenAIClient):
         api_key: str = "ollama",  # Often not required, but good practice to have a default
         model_name: str = "llama2",
         base_url: str = "http://localhost:11434/v1",
-        temperature: Optional[float] = 0.3,
-        logger: Optional[logging.Logger] = None,
+        temperature: float | None = 0.3,
+        logger: logging.Logger | None = None,
     ):
         """
         Initializes the OllamaClient.

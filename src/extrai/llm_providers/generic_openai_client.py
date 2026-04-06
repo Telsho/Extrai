@@ -1,11 +1,14 @@
-import logging
-import openai
-import json
 import io
-from typing import Optional, List, Dict, Any
-from extrai.core.errors import LLMAPICallError
-from extrai.core.base_llm_client import BaseLLMClient
+import json
+import logging
+from typing import Any
+
+import openai
+
 from extrai.core.analytics_collector import WorkflowAnalyticsCollector
+from extrai.core.base_llm_client import BaseLLMClient, ResponseMode
+from extrai.core.cost_calculator import calculate_cost
+from extrai.core.errors import LLMAPICallError
 
 
 class GenericOpenAIClient(BaseLLMClient):
@@ -19,8 +22,8 @@ class GenericOpenAIClient(BaseLLMClient):
         api_key: str,
         model_name: str,
         base_url: str,
-        temperature: Optional[float] = 0.3,
-        logger: Optional[logging.Logger] = None,
+        temperature: float | None = 0.3,
+        logger: logging.Logger | None = None,
     ):
         """
         Initializes the GenericOpenAIClient.
@@ -45,22 +48,29 @@ class GenericOpenAIClient(BaseLLMClient):
         self,
         system_prompt: str,
         user_prompt: str,
-        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
-    ) -> str:
+        response_mode: ResponseMode = ResponseMode.TEXT,
+        response_model: Any | None = None,
+        analytics_collector: WorkflowAnalyticsCollector | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Makes the actual API call to an OpenAI-compatible LLM.
 
         Args:
             system_prompt: The system prompt for the LLM.
             user_prompt: The user prompt for the LLM.
+            response_mode: Whether to return raw text or structured output.
+            response_model: The Pydantic/SQLModel class for structured responses.
             analytics_collector: Optional analytics collector.
+            **kwargs: Additional arguments to pass to the API client.
 
         Returns:
-            The raw string content from the LLM response. Returns an empty string
-            if the LLM response content is None.
+            - TEXT mode: The raw string content from the LLM response.
+            - STRUCTURED mode: Instance of response_model.
 
         Raises:
             LLMAPICallError: If the API call fails or returns an error.
+            ValueError: If structured mode is requested but no response_model is provided.
         """
         try:
             messages = []
@@ -68,95 +78,84 @@ class GenericOpenAIClient(BaseLLMClient):
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": user_prompt})
 
-            chat_completion = await self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=self.temperature
-                if self.temperature is not None
-                else openai.NOT_GIVEN,
-            )
+            if response_mode == ResponseMode.STRUCTURED:
+                if response_model is None:
+                    raise ValueError("response_model required for STRUCTURED mode")
 
-            if (
-                analytics_collector
-                and hasattr(chat_completion, "usage")
-                and chat_completion.usage
-            ):
-                analytics_collector.record_llm_usage(
-                    input_tokens=getattr(chat_completion.usage, "prompt_tokens", 0),
-                    output_tokens=getattr(
+                completion = await self.client.beta.chat.completions.parse(
+                    model=self.model_name,
+                    messages=messages,
+                    response_format=response_model,
+                    temperature=self.temperature
+                    if self.temperature is not None
+                    else openai.NOT_GIVEN,
+                    **kwargs,
+                )
+
+                if (
+                    analytics_collector
+                    and hasattr(completion, "usage")
+                    and completion.usage
+                ):
+                    input_tokens = getattr(completion.usage, "prompt_tokens", 0)
+                    output_tokens = getattr(
+                        completion.usage, "completion_tokens", 0
+                    )
+                    cost = calculate_cost(
+                        self.model_name, input_tokens, output_tokens
+                    )
+                    analytics_collector.record_llm_usage(
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        model=self.model_name,
+                        cost=cost,
+                    )
+
+                message = completion.choices[0].message
+                if message.refusal:
+                    raise LLMAPICallError(
+                        f"Model refused to generate structured output: {message.refusal}"
+                    )
+
+                return message.parsed
+
+            else:  # TEXT mode
+                # Default to json_object
+                if "response_format" not in kwargs:
+                    kwargs["response_format"] = {"type": "json_object"}
+
+                chat_completion = await self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.temperature
+                    if self.temperature is not None
+                    else openai.NOT_GIVEN,
+                    **kwargs,
+                )
+
+                if (
+                    analytics_collector
+                    and hasattr(chat_completion, "usage")
+                    and chat_completion.usage
+                ):
+                    input_tokens = getattr(
+                        chat_completion.usage, "prompt_tokens", 0
+                    )
+                    output_tokens = getattr(
                         chat_completion.usage, "completion_tokens", 0
-                    ),
-                    model=self.model_name,
-                )
+                    )
+                    cost = calculate_cost(
+                        self.model_name, input_tokens, output_tokens
+                    )
+                    analytics_collector.record_llm_usage(
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        model=self.model_name,
+                        cost=cost,
+                    )
 
-            response_content = chat_completion.choices[0].message.content
-            return response_content if response_content is not None else ""
-
-        except openai.APIError as e:
-            error_message = str(e)
-            if hasattr(e, "message") and e.message:
-                error_message = e.message
-            elif hasattr(e, "body") and e.body:
-                if "message" in e.body:
-                    error_message = e.body["message"]
-                elif "error" in e.body and "message" in e.body["error"]:
-                    error_message = e.body["error"]["message"]
-
-            status_code = e.status_code if hasattr(e, "status_code") else "N/A"
-            raise LLMAPICallError(
-                f"API call failed. Status: {status_code}. Error: {error_message}"
-            ) from e
-        except Exception as e:
-            raise LLMAPICallError(
-                f"Unexpected error during API call: {type(e).__name__} - {str(e)}"
-            ) from e
-
-    async def generate_structured(
-        self,
-        system_prompt: str,
-        user_prompt: str,
-        response_model: Any,
-        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
-        **kwargs: Any,
-    ) -> Any:
-        """
-        Generates structured output using OpenAI's beta.chat.completions.parse.
-        """
-        try:
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": user_prompt})
-
-            completion = await self.client.beta.chat.completions.parse(
-                model=self.model_name,
-                messages=messages,
-                response_format=response_model,
-                temperature=self.temperature
-                if self.temperature is not None
-                else openai.NOT_GIVEN,
-                **kwargs,
-            )
-
-            if (
-                analytics_collector
-                and hasattr(completion, "usage")
-                and completion.usage
-            ):
-                analytics_collector.record_llm_usage(
-                    input_tokens=getattr(completion.usage, "prompt_tokens", 0),
-                    output_tokens=getattr(completion.usage, "completion_tokens", 0),
-                    model=self.model_name,
-                )
-
-            message = completion.choices[0].message
-            if message.refusal:
-                raise LLMAPICallError(
-                    f"Model refused to generate structured output: {message.refusal}"
-                )
-
-            return message.parsed
+                response_content = chat_completion.choices[0].message.content
+                return response_content if response_content is not None else ""
 
         except openai.APIError as e:
             error_message = str(e)
@@ -179,10 +178,11 @@ class GenericOpenAIClient(BaseLLMClient):
 
     async def create_batch_job(
         self,
-        requests: List[Dict[str, Any]],
+        requests: list[dict[str, Any]],
         endpoint: str = "/v1/chat/completions",
         completion_window: str = "24h",
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: dict[str, str] | None = None,
+        response_model: Any | None = None,
     ) -> Any:
         """
         Creates a batch job for processing multiple requests.
@@ -246,9 +246,7 @@ class GenericOpenAIClient(BaseLLMClient):
         except openai.APIError as e:
             raise LLMAPICallError(f"Failed to retrieve batch {batch_id}: {e}") from e
 
-    async def list_batch_jobs(
-        self, limit: int = 20, after: Optional[str] = None
-    ) -> Any:
+    async def list_batch_jobs(self, limit: int = 20, after: str | None = None) -> Any:
         """
         Lists batch jobs.
         """
@@ -279,8 +277,8 @@ class GenericOpenAIClient(BaseLLMClient):
             ) from e
 
     def extract_content_from_batch_response(
-        self, response: Dict[str, Any]
-    ) -> Optional[str]:
+        self, response: dict[str, Any]
+    ) -> str | None:
         """
         Extracts content from OpenAI batch response item.
         """
@@ -289,3 +287,30 @@ class GenericOpenAIClient(BaseLLMClient):
             if "choices" in body and body["choices"]:
                 return body["choices"][0]["message"]["content"]
         return None
+
+    def prepare_request(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: Any | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        Prepares a request dictionary for OpenAI batch processing.
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_prompt})
+
+        body = {
+            "model": self.model_name,
+            "messages": messages,
+            "temperature": self.temperature,
+            **kwargs,
+        }
+
+        if json_schema:
+            body["response_format"] = {"type": "json_object"}
+
+        return body
