@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 
 class WorkflowAnalyticsCollector:
@@ -7,7 +7,7 @@ class WorkflowAnalyticsCollector:
     Collects analytics data throughout the LLM workflow.
     """
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger | None = None):
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         if not logger:
             self.logger.setLevel(logging.WARNING)
@@ -19,14 +19,14 @@ class WorkflowAnalyticsCollector:
         self._hydrated_objects_successes: int = 0
         self._hydration_failures: int = 0
         # Stores a list of dictionaries, each dictionary being the analytics_details from a consensus run
-        self._consensus_run_details_list: List[Dict[str, Any]] = []
-        self._custom_events: List[Dict[str, Any]] = []
-        self._workflow_errors: List[Dict[str, Any]] = []
-        self._llm_output_validations_errors_details: List[Dict[str, Any]] = []
+        self._consensus_run_details_list: list[dict[str, Any]] = []
+        self._custom_events: list[dict[str, Any]] = []
+        self._workflow_errors: list[dict[str, Any]] = []
+        self._llm_output_validations_errors_details: list[dict[str, Any]] = []
         self._total_llm_cost: float = 0.0
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
-        self._llm_cost_details: List[Dict[str, Any]] = []
+        self._llm_cost_details: list[dict[str, Any]] = []
 
     def record_llm_usage(
         self,
@@ -34,12 +34,13 @@ class WorkflowAnalyticsCollector:
         output_tokens: int,
         model: str,
         cost: float = 0.0,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """Records the token usage and optional cost of an LLM call."""
         self._total_input_tokens += input_tokens
         self._total_output_tokens += output_tokens
-        self._total_llm_cost += cost
+        if cost is not None:
+            self._total_llm_cost += cost
 
         usage_details = {
             "model": model,
@@ -76,7 +77,7 @@ class WorkflowAnalyticsCollector:
         """Increments the count of hydration failures."""
         self._hydration_failures += 1
 
-    def record_consensus_run_details(self, consensus_analytics_details: Dict[str, Any]):
+    def record_consensus_run_details(self, consensus_analytics_details: dict[str, Any]):
         """
         Records detailed analytics from a single consensus calculation.
 
@@ -224,7 +225,7 @@ class WorkflowAnalyticsCollector:
             else 0.0
         )
 
-    def get_report(self) -> Dict[str, Any]:
+    def get_report(self) -> dict[str, Any]:
         """
         Returns a dictionary summarizing all collected analytics.
         """
@@ -282,7 +283,7 @@ class WorkflowAnalyticsCollector:
         return report
 
     def record_custom_event(
-        self, event_name: str, details: Optional[Dict[str, Any]] = None
+        self, event_name: str, details: dict[str, Any] | None = None
     ):
         """Records a generic custom event."""
         event_record = {"event_name": event_name}
@@ -293,9 +294,9 @@ class WorkflowAnalyticsCollector:
     def record_workflow_error(
         self,
         error_type: str,
-        context: Optional[str] = None,
-        message: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        context: str | None = None,
+        message: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         """Records a generic workflow error."""
         error_record = {"error_type": error_type}

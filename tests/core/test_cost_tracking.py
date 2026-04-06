@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from extrai.core.analytics_collector import WorkflowAnalyticsCollector
+from extrai.core.base_llm_client import ResponseMode
 from extrai.llm_providers.generic_openai_client import GenericOpenAIClient
 
 
@@ -50,8 +51,12 @@ async def test_structured_cost_tracking():
     client.client.beta.chat.completions.parse = AsyncMock(return_value=mock_completion)
 
     # Execute
-    await client.generate_structured(
-        "system", "user", MagicMock(), analytics_collector=collector
+    await client._execute_llm_call(
+        "system",
+        "user",
+        response_mode=ResponseMode.STRUCTURED,
+        response_model=MagicMock(),
+        analytics_collector=collector,
     )
 
     # Verify
