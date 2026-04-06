@@ -2,28 +2,29 @@
 import logging
 import math
 from collections import Counter
-from typing import List, Dict, Any, Optional, Union, Tuple
-from extrai.utils.flattening_utils import (
-    flatten_json,
-    unflatten_json,
-    Path,
-    JSONValue,
-    JSONObject,
-    JSONArray,
-    FlattenedJSON,
-)
+from typing import Any
+
 from extrai.core.conflict_resolvers import (
     ConflictResolutionStrategy,
     default_conflict_resolver,
-    prefer_most_common_resolver,
     levenshtein_similarity,
+    prefer_most_common_resolver,
+)
+from extrai.utils.flattening_utils import (
+    FlattenedJSON,
+    JSONArray,
+    JSONObject,
+    JSONValue,
+    Path,
+    flatten_json,
+    unflatten_json,
 )
 
 # Sentinel value to indicate that no consensus was reached for a path.
 _NO_CONSENSUS = object()
 
 # Define a type for a list of JSON revisions
-JSONRevisions = List[Union[JSONObject, JSONArray]]
+JSONRevisions = list[JSONObject | JSONArray]
 
 
 class JSONConsensus:
@@ -35,10 +36,9 @@ class JSONConsensus:
     def __init__(
         self,
         consensus_threshold: float = 0.5,
-        conflict_resolver: Optional[
-            ConflictResolutionStrategy
-        ] = default_conflict_resolver,
-        logger: Optional[logging.Logger] = None,
+        conflict_resolver: ConflictResolutionStrategy
+        | None = default_conflict_resolver,
+        logger: logging.Logger | None = None,
     ):
         """
         Initializes the JSONConsensus processor.
@@ -63,7 +63,7 @@ class JSONConsensus:
 
     def get_consensus(
         self, revisions: JSONRevisions
-    ) -> Tuple[Union[JSONObject, JSONArray, JSONValue, None], Dict[str, Any]]:
+    ) -> tuple[JSONObject | JSONArray | JSONValue | None, dict[str, Any]]:
         num_revisions = len(revisions)
         analytics = self._initialize_analytics(num_revisions)
 
@@ -96,7 +96,7 @@ class JSONConsensus:
 
         return final_consensus_object, analytics
 
-    def _initialize_analytics(self, num_revisions: int) -> Dict[str, Any]:
+    def _initialize_analytics(self, num_revisions: int) -> dict[str, Any]:
         return {
             "revisions_processed": num_revisions,
             "unique_paths_considered": 0,
@@ -108,7 +108,7 @@ class JSONConsensus:
             "average_string_similarity": 0.0,  # Average Levenshtein ratio (1.0 = identical)
         }
 
-    def _calculate_revision_weights(self, revisions: JSONRevisions) -> List[float]:
+    def _calculate_revision_weights(self, revisions: JSONRevisions) -> list[float]:
         """
         Calculates weights for each revision based on its similarity to other revisions.
         Revisions that are similar to others get higher weights (centrality).
@@ -163,11 +163,11 @@ class JSONConsensus:
 
     def _aggregate_paths(
         self, revisions: JSONRevisions
-    ) -> Dict[Path, List[Tuple[JSONValue, int]]]:
+    ) -> dict[Path, list[tuple[JSONValue, int]]]:
         """
         Aggregates values for each path, preserving the source revision index.
         """
-        path_to_values: Dict[Path, List[Tuple[JSONValue, int]]] = {}
+        path_to_values: dict[Path, list[tuple[JSONValue, int]]] = {}
         flattened_revisions = [flatten_json(rev) for rev in revisions]
         for idx, flat_rev in enumerate(flattened_revisions):
             for path, value in flat_rev.items():
@@ -176,10 +176,10 @@ class JSONConsensus:
 
     def _build_consensus_json(
         self,
-        path_to_values: Dict[Path, List[Tuple[JSONValue, int]]],
+        path_to_values: dict[Path, list[tuple[JSONValue, int]]],
         num_revisions: int,
-        analytics: Dict[str, Any],
-        revision_weights: List[float],
+        analytics: dict[str, Any],
+        revision_weights: list[float],
     ) -> FlattenedJSON:
         consensus_flat_json: FlattenedJSON = {}
 
@@ -266,10 +266,10 @@ class JSONConsensus:
     def _get_consensus_for_path(
         self,
         path: Path,
-        values: List[JSONValue],
-        weights: List[float],
+        values: list[JSONValue],
+        weights: list[float],
         num_revisions: int,
-    ) -> Union[JSONValue, object]:
+    ) -> JSONValue | object:
         # Use weighted voting if weights provided
         most_common_candidate = prefer_most_common_resolver(path, values, weights)
 
@@ -304,7 +304,7 @@ class JSONConsensus:
 
     def _build_final_object(
         self, consensus_flat_json: FlattenedJSON, revisions: JSONRevisions
-    ) -> Union[JSONObject, JSONArray, JSONValue, None]:
+    ) -> JSONObject | JSONArray | JSONValue | None:
         if not consensus_flat_json and revisions:
             return [] if isinstance(revisions[0], list) else {}
         return unflatten_json(consensus_flat_json)

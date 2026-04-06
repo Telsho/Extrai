@@ -1,18 +1,20 @@
 # extrai/core/conflict_resolvers.py
 from collections import Counter
-from typing import List, Optional, Callable, Dict, Any
-from extrai.utils.flattening_utils import Path, JSONValue
+from collections.abc import Callable
 from difflib import SequenceMatcher
+from typing import Any
+
+from extrai.utils.flattening_utils import JSONValue, Path
 
 # Define conflict resolution strategies
 ConflictResolutionStrategy = Callable[
-    [Path, List[JSONValue], Optional[List[float]]], Optional[JSONValue]
+    [Path, list[JSONValue], list[float] | None], JSONValue | None
 ]
 
 
 def default_conflict_resolver(
-    path: Path, values: List[JSONValue], weights: Optional[List[float]] = None
-) -> Optional[JSONValue]:
+    path: Path, values: list[JSONValue], weights: list[float] | None = None
+) -> JSONValue | None:
     """
     Default conflict resolution: if no consensus, omit the field.
     """
@@ -20,8 +22,8 @@ def default_conflict_resolver(
 
 
 def prefer_most_common_resolver(
-    _path: Path, values: List[JSONValue], weights: Optional[List[float]] = None
-) -> Optional[JSONValue]:
+    _path: Path, values: list[JSONValue], weights: list[float] | None = None
+) -> JSONValue | None:
     """
     Conflict resolution: prefer the most common value.
     If weights are provided, prefers the value with the highest total weight.
@@ -31,7 +33,7 @@ def prefer_most_common_resolver(
 
     if weights and len(weights) == len(values):
         # Weighted voting
-        weighted_counts: Dict[Any, float] = {}
+        weighted_counts: dict[Any, float] = {}
         # We need to handle unhashable types (like dicts/lists) if they appear in values
         # But JSONValue can be complex. Typically conflict resolution is on leaves (primitives).
         # Flattening utils usually produce primitives at leaves, but lists can be values if not recursed?
@@ -88,8 +90,8 @@ class SimilarityClusterResolver:
         self.scorer = scorer
 
     def __call__(
-        self, path: Path, values: List[JSONValue], weights: Optional[List[float]] = None
-    ) -> Optional[JSONValue]:
+        self, path: Path, values: list[JSONValue], weights: list[float] | None = None
+    ) -> JSONValue | None:
         if not values:
             return None
 

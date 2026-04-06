@@ -1,13 +1,26 @@
 import logging
-from typing import List, Dict, Any, Optional
-from pydantic import create_model
+from typing import Any
 
-from .model_registry import ModelRegistry
+from pydantic import BaseModel, Field
+
+from .counting_consensus import CountingConsensus
 from .extraction_config import ExtractionConfig
+from .model_registry import ModelRegistry
 from .prompt_builder import (
     generate_entity_counting_system_prompt,
     generate_entity_counting_user_prompt,
 )
+
+
+class CountedEntity(BaseModel):
+    model: str
+    temp_id: str
+    related_ids: list[str] = Field(default_factory=list)
+    description: str
+
+
+class EntityCountResult(BaseModel):
+    counted_entities: list[CountedEntity] = Field(default_factory=list)
 
 
 class EntityCounter:
@@ -26,13 +39,19 @@ class EntityCounter:
         self.config = config
         self.analytics_collector = analytics_collector
         self.logger = logger
+        self.counting_consensus = CountingConsensus(
+            config=self.config,
+            llm_client=self.llm_client,
+            logger=self.logger,
+        )
 
     def prepare_counting_prompts(
         self,
-        input_strings: List[str],
-        model_names: List[str],
+        input_strings: list[str],
+        model_names: list[str],
         custom_counting_context: str = "",
-        previous_entities: Optional[List[Dict[str, Any]]] = None,
+        previous_entities: list[dict[str, Any]] | None = None,
+        examples: str = "",
     ):
         """Prepares prompts for batch counting."""
         # Generate schema for models
@@ -40,73 +59,85 @@ class EntityCounter:
 
         # Build prompts
         system_prompt = generate_entity_counting_system_prompt(
-            model_names, schema_json, custom_counting_context, previous_entities
+            model_names,
+            schema_json,
+            custom_counting_context,
+            previous_entities,
+            examples,
         )
         user_prompt = generate_entity_counting_user_prompt(input_strings)
 
         return system_prompt, user_prompt
 
     def validate_counts(
-        self, raw_counts: Dict[str, Any], model_names: List[str]
-    ) -> Dict[str, List[str]]:
-        """Validates raw counting results against dynamic model."""
-        fields = {name: (List[str], ...) for name in model_names}
-        EntityCountModel = create_model("EntityCountModel", **fields)
+        self, raw_counts: dict[str, Any], model_names: list[str]
+    ) -> dict[str, list[str]]:
+        """Validates raw counting results against static model."""
         try:
-            validated = EntityCountModel(**raw_counts)
+            validated = EntityCountResult(**raw_counts)
             return validated.model_dump()
         except Exception as e:
             self.logger.warning(f"Count validation failed: {e}")
             return {}
 
+    def get_counting_model(self, model_names: list[str]):
+        """Creates a Pydantic model for entity counting."""
+        return EntityCountResult
+
     async def count_entities(
         self,
-        input_strings: List[str],
-        model_names: List[str],
+        input_strings: list[str],
+        model_names: list[str],
         custom_counting_context: str = "",
-        previous_entities: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, List[str]]:
-        """Performs entity counting for specified models."""
+        previous_entities: list[dict[str, Any]] | None = None,
+        examples: str = "",
+    ) -> list[dict[str, Any]]:
+        """Performs entity counting for specified models using consensus."""
         self.logger.info(f"Counting entities for: {model_names}")
 
         system_prompt, user_prompt = self.prepare_counting_prompts(
-            input_strings, model_names, custom_counting_context, previous_entities
+            input_strings,
+            model_names,
+            custom_counting_context,
+            previous_entities,
+            examples,
         )
 
-        # Create validation model
-        fields = {name: (List[str], ...) for name in model_names}
-        EntityCountModel = create_model("EntityCountModel", **fields)
+        target_json_schema = EntityCountResult.model_json_schema() if self.config.use_structured_output else None
 
-        # Call LLM
+        client = self.llm_client
+        if isinstance(client, list):
+            client = client[0]
+
         try:
-            # Get next client (assuming llm_client is list or has rotation)
-            if isinstance(self.llm_client, list):
-                client = self.llm_client[0]
-            else:
-                client = self.llm_client
-
-            result = await client.generate_and_validate_raw_json_output(
+            # Execute multiple revisions natively
+            revisions = await client.generate_and_validate_raw_json_output(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                target_json_schema=None,
-                num_revisions=1,
+                target_json_schema=target_json_schema,
+                num_revisions=self.config.num_counting_revisions,
                 max_validation_retries_per_revision=self.config.max_validation_retries_per_revision,
                 attempt_unwrap=False,
             )
 
-            # Process result
-            if isinstance(result, list) and result:
-                result = result[0]
+            # Revisions should be a list of dictionaries if successful
+            if not isinstance(revisions, list):
+                if isinstance(revisions, dict):
+                    revisions = [revisions]
+                else:
+                    self.logger.warning("Entity counting returned invalid result format")
+                    return []
 
-            if isinstance(result, dict):
-                validated = EntityCountModel(**result)
-                counts = validated.model_dump()
-                self.logger.info(f"Entity counts: {counts}")
-                return counts
+            # Achieve consensus
+            consensus_result = await self.counting_consensus.achieve_consensus(
+                revisions=revisions,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                target_json_schema=target_json_schema,
+            )
 
-            self.logger.warning("Entity counting returned invalid result")
-            return {}
+            return consensus_result
 
         except Exception as e:
             self.logger.error(f"Entity counting failed: {e}")
-            return {}
+            return []
