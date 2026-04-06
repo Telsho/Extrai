@@ -1,22 +1,24 @@
 import json
 import logging
-from typing import Optional, Dict, Any, Type
+from typing import Any
 
 from sqlmodel import SQLModel
-from extrai.core.base_llm_client import BaseLLMClient
-from extrai.core.prompt_builder import (
-    generate_prompt_for_example_json_generation,
-)
+
 from extrai.core.analytics_collector import (
     WorkflowAnalyticsCollector,
 )
+from extrai.core.base_llm_client import BaseLLMClient
 from extrai.core.errors import (
+    ConfigurationError,
     ExampleGenerationError,
     LLMAPICallError,
     LLMOutputParseError,
     LLMOutputValidationError,
-    ConfigurationError,
 )
+from extrai.core.prompt_builder import (
+    generate_prompt_for_example_json_generation,
+)
+
 from .schema_inspector import SchemaInspector
 
 
@@ -29,10 +31,10 @@ class ExampleJSONGenerator:
     def __init__(
         self,
         llm_client: BaseLLMClient,
-        output_model: Type[SQLModel],
-        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+        output_model: type[SQLModel],
+        analytics_collector: WorkflowAnalyticsCollector | None = None,
         max_validation_retries_per_revision: int = 1,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         if not logger:
@@ -75,7 +77,7 @@ class ExampleJSONGenerator:
 
             # The schema for basic validation by the LLM client needs to match the new
             # expected output format: `{"entities": [...]}`.
-            self.target_json_schema_dict: Dict[str, Any] = {
+            self.target_json_schema_dict: dict[str, Any] = {
                 "type": "object",
                 "properties": {
                     "entities": {"type": "array", "items": {"type": "object"}}

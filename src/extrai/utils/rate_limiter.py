@@ -1,6 +1,5 @@
 import asyncio
 import time
-from typing import List, Tuple
 
 
 class AsyncRateLimiter:
@@ -18,7 +17,7 @@ class AsyncRateLimiter:
         self.max_capacity = max_capacity
         self.period = period
         # List of (timestamp, cost)
-        self.history: List[Tuple[float, int]] = []
+        self.history: list[tuple[float, int]] = []
         self._lock = asyncio.Lock()
 
     async def acquire(self, cost: int = 1):

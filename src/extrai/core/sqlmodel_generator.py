@@ -1,35 +1,36 @@
-import logging
-from typing import Any, Dict, Type, List as TypingList, Optional, Generator
-import tempfile
 import importlib.util
-import sys
-import os
-import uuid
 import json
+import logging
+import os
+import sys
+import tempfile
+import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any
 
 from pydantic import ValidationError
 from sqlmodel import SQLModel
 
-from extrai.core.errors import (
-    SQLModelCodeGeneratorError,
-    SQLModelInstantiationValidationError,
-    LLMInteractionError,
-    ConfigurationError,
-    LLMConfigurationError,
-    LLMOutputParseError,
-    LLMOutputValidationError,
-    LLMAPICallError,
-)
-from extrai.core.base_llm_client import BaseLLMClient
 from extrai.core.analytics_collector import (
     WorkflowAnalyticsCollector,
+)
+from extrai.core.base_llm_client import BaseLLMClient
+from extrai.core.code_generation.python_builder import PythonModelBuilder
+from extrai.core.errors import (
+    ConfigurationError,
+    LLMAPICallError,
+    LLMConfigurationError,
+    LLMInteractionError,
+    LLMOutputParseError,
+    LLMOutputValidationError,
+    SQLModelCodeGeneratorError,
+    SQLModelInstantiationValidationError,
 )
 from extrai.core.prompt_builder import (
     generate_sqlmodel_creation_system_prompt,
     generate_user_prompt_for_docs,
 )
-from extrai.core.code_generation.python_builder import PythonModelBuilder
 
 
 class SQLModelCodeGenerator:
@@ -40,7 +41,7 @@ class SQLModelCodeGenerator:
     The generated code is then dynamically loaded.
     """
 
-    _sqlmodel_description_schema_cache: Optional[Dict[str, Any]] = None
+    _sqlmodel_description_schema_cache: dict[str, Any] | None = None
     # Adjusted path to be relative to this file (sqlmodel_generator.py)
     _SCHEMA_FILE_PATH = os.path.join(
         os.path.dirname(__file__), "schemas", "sqlmodel_description_schema.json"
@@ -49,8 +50,8 @@ class SQLModelCodeGenerator:
     def __init__(
         self,
         llm_client: BaseLLMClient,
-        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
-        logger: Optional[logging.Logger] = None,
+        analytics_collector: WorkflowAnalyticsCollector | None = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initializes the SQLModelCodeGenerator.
@@ -71,7 +72,7 @@ class SQLModelCodeGenerator:
         else:
             self.analytics_collector = analytics_collector
 
-    def _load_sqlmodel_description_schema(self) -> Dict[str, Any]:
+    def _load_sqlmodel_description_schema(self) -> dict[str, Any]:
         """
         Loads the SQLModel description JSON schema from file.
         Caches the schema after the first load.
@@ -87,7 +88,7 @@ class SQLModelCodeGenerator:
                         current_dir, "schemas", "sqlmodel_description_schema.json"
                     )
 
-                with open(schema_file_path, "r") as f:
+                with open(schema_file_path) as f:
                     schema = json.load(f)
                 SQLModelCodeGenerator._sqlmodel_description_schema_cache = schema
             except FileNotFoundError:
@@ -100,7 +101,7 @@ class SQLModelCodeGenerator:
                 )
         return SQLModelCodeGenerator._sqlmodel_description_schema_cache
 
-    def _generate_code_from_description(self, llm_json_output: Dict[str, Any]) -> str:
+    def _generate_code_from_description(self, llm_json_output: dict[str, Any]) -> str:
         """
         Delegates the code generation to the PythonModelBuilder.
         """
@@ -156,10 +157,10 @@ class SQLModelCodeGenerator:
     def _extract_models_from_module(
         self,
         module: Any,
-        model_names: TypingList[str],
+        model_names: list[str],
         generated_code: str,
         module_name: str,
-    ) -> Dict[str, Type[SQLModel]]:
+    ) -> dict[str, type[SQLModel]]:
         """Extracts and validates SQLModel classes from a loaded module."""
         loaded_classes_map = {}
         for name_to_load in model_names:
@@ -176,7 +177,7 @@ class SQLModelCodeGenerator:
         return loaded_classes_map
 
     def _rebuild_and_validate_models(
-        self, loaded_classes: Dict[str, Type[SQLModel]], generated_code: str
+        self, loaded_classes: dict[str, type[SQLModel]], generated_code: str
     ):
         """Calls model_rebuild and validates instantiation for all loaded models."""
         for cls_to_rebuild in loaded_classes.values():
@@ -198,8 +199,8 @@ class SQLModelCodeGenerator:
                 ) from inst_e
 
     def _generate_and_load_class_from_description(
-        self, model_description: Dict[str, Any]
-    ) -> tuple[Dict[str, Type[SQLModel]], str]:
+        self, model_description: dict[str, Any]
+    ) -> tuple[dict[str, type[SQLModel]], str]:
         """
         Generates SQLModel Python code from a given description, dynamically loads it,
         and returns the generated SQLModel classes and the generated code.
@@ -246,11 +247,11 @@ class SQLModelCodeGenerator:
 
     async def generate_and_load_models_via_llm(
         self,
-        input_documents: TypingList[str],
+        input_documents: list[str],
         user_task_description: str,
         num_model_revisions: int = 1,
         max_retries_per_model_revision: int = 2,
-    ) -> tuple[Dict[str, Type[SQLModel]], str]:
+    ) -> tuple[dict[str, type[SQLModel]], str]:
         """
         Generates SQLModel description(s) via LLM, then uses internal methods
         to generate Python code and dynamically load the class(es).
@@ -294,8 +295,8 @@ class SQLModelCodeGenerator:
         )
 
         try:
-            validated_descriptions: TypingList[
-                Dict[str, Any]
+            validated_descriptions: list[
+                dict[str, Any]
             ] = await self.llm_client.generate_and_validate_raw_json_output(
                 system_prompt=system_prompt_for_model_gen,
                 user_prompt=user_prompt_for_model_gen,

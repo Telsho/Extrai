@@ -1,23 +1,24 @@
+import enum
 import json
 import logging
-import enum
-from typing import Type, List, Optional, Any, Dict, Set, Tuple
-from sqlalchemy import inspect, Column, Table
-from sqlalchemy.orm import RelationshipProperty
+from typing import Any
+
+from sqlalchemy import Column, Table, inspect
 from sqlalchemy.exc import NoInspectionAvailable
-from sqlalchemy.schema import UniqueConstraint, PrimaryKeyConstraint
+from sqlalchemy.orm import RelationshipProperty
+from sqlalchemy.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlmodel import SQLModel
 
 from extrai.utils.type_mapping import (
-    map_sql_type_to_llm_type,
     get_python_type_str_from_pydantic_annotation,
+    map_sql_type_to_llm_type,
 )
 
 
 class SchemaInspector:
     """Helper class to inspect SQLAlchemy models and generate LLM schemas."""
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger | None = None):
         self.logger = logger or logging.getLogger(__name__)
 
     def _is_column_unique(self, column_obj: Column) -> bool:
@@ -44,7 +45,7 @@ class SchemaInspector:
 
     def _build_column_info(
         self, column_obj: Column, is_unique: bool, python_type_name: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Builds the column information dictionary."""
         enum_values = None
         # Handle SQLAlchemy Enum types (both class-based and string-based)
@@ -72,7 +73,7 @@ class SchemaInspector:
             col_info["foreign_key_to"] = str(fk_constraint_obj.column)
         return col_info
 
-    def _get_columns_from_inspector(self, inspector) -> Dict[str, Any]:
+    def _get_columns_from_inspector(self, inspector) -> dict[str, Any]:
         """Extracts all column properties from a SQLAlchemy inspector."""
         columns_info = {}
         for col_attr in inspector.column_attrs:
@@ -86,9 +87,9 @@ class SchemaInspector:
             )
         return columns_info
 
-    def _get_fks_from_secondary_table(self, rel_prop: RelationshipProperty) -> Set[str]:
+    def _get_fks_from_secondary_table(self, rel_prop: RelationshipProperty) -> set[str]:
         """Handles relationships that use a secondary table."""
-        involved_fk_columns: Set[str] = set()
+        involved_fk_columns: set[str] = set()
         if rel_prop.secondary is not None:
             for fk_constraint in rel_prop.secondary.foreign_key_constraints:
                 for col in fk_constraint.columns:
@@ -97,9 +98,9 @@ class SchemaInspector:
 
     def _get_fks_from_synchronize_pairs(
         self, rel_prop: RelationshipProperty
-    ) -> Set[str]:
+    ) -> set[str]:
         """Handles relationships that use synchronize_pairs."""
-        involved_fk_columns: Set[str] = set()
+        involved_fk_columns: set[str] = set()
         if rel_prop.synchronize_pairs:
             for local_join_col, remote_join_col in rel_prop.synchronize_pairs:
                 if (
@@ -116,15 +117,15 @@ class SchemaInspector:
 
     def _get_fks_from_direct_foreign_keys(
         self, rel_prop: RelationshipProperty
-    ) -> Set[str]:
+    ) -> set[str]:
         """Handles relationships that have direct foreign_keys."""
-        involved_fk_columns: Set[str] = set()
+        involved_fk_columns: set[str] = set()
         if hasattr(rel_prop, "foreign_keys") and rel_prop.foreign_keys is not None:
             for fk_col in rel_prop.foreign_keys:
                 involved_fk_columns.add(str(fk_col))
         return involved_fk_columns
 
-    def _get_involved_foreign_keys(self, rel_prop: RelationshipProperty) -> Set[str]:
+    def _get_involved_foreign_keys(self, rel_prop: RelationshipProperty) -> set[str]:
         """
         Finds all foreign key columns involved in a relationship by dispatching to helper functions.
         """
@@ -142,9 +143,9 @@ class SchemaInspector:
     def _build_relationship_info(
         self,
         rel_prop: RelationshipProperty,
-        involved_fk_columns: Set[str],
-        recursion_path_tracker: Set[Type[Any]],
-    ) -> Dict[str, Any]:
+        involved_fk_columns: set[str],
+        recursion_path_tracker: set[type[Any]],
+    ) -> dict[str, Any]:
         """Builds the relationship information dictionary, including recursion."""
         related_model_class = rel_prop.mapper.class_
         return {
@@ -169,8 +170,8 @@ class SchemaInspector:
         }
 
     def _get_relationships_from_inspector(
-        self, inspector, recursion_path_tracker: Set[Type[Any]]
-    ) -> Dict[str, Any]:
+        self, inspector, recursion_path_tracker: set[type[Any]]
+    ) -> dict[str, Any]:
         """Extracts all relationship properties from a SQLAlchemy inspector."""
         relationships_info = {}
         for name, rel_prop in inspector.relationships.items():
@@ -182,8 +183,8 @@ class SchemaInspector:
         return relationships_info
 
     def _inspect_sqlalchemy_model_recursive(
-        self, model_class: Type[Any], recursion_path_tracker: Set[Type[Any]]
-    ) -> Dict[str, Any]:
+        self, model_class: type[Any], recursion_path_tracker: set[type[Any]]
+    ) -> dict[str, Any]:
         """
         Internal recursive function to introspect a SQLAlchemy model class.
         """
@@ -225,7 +226,7 @@ class SchemaInspector:
 
         recursion_path_tracker.add(model_class)
 
-        schema_info: Dict[str, Any] = {
+        schema_info: dict[str, Any] = {
             "table_name": table_name_str,
             "model_name": model_class.__name__,
             "info_dict": table_info_dict,
@@ -239,7 +240,7 @@ class SchemaInspector:
         recursion_path_tracker.remove(model_class)
         return schema_info
 
-    def inspect_sqlalchemy_model(self, model_class: Type[Any]) -> Dict[str, Any]:
+    def inspect_sqlalchemy_model(self, model_class: type[Any]) -> dict[str, Any]:
         """
         Public wrapper function to start the SQLAlchemy model introspection.
         """
@@ -247,9 +248,9 @@ class SchemaInspector:
 
     def _collect_all_sqla_models_recursively(
         self,
-        current_model_class: Type[Any],
-        all_discovered_models: List[Type[Any]],
-        recursion_guard: Set[Type[Any]],
+        current_model_class: type[Any],
+        all_discovered_models: list[type[Any]],
+        recursion_guard: set[type[Any]],
     ) -> None:
         """
         Recursively collects all unique SQLAlchemy model classes related to current_model_class.
@@ -283,11 +284,11 @@ class SchemaInspector:
     def _get_prioritized_description(
         self,
         *,
-        custom_desc: Optional[str] = None,
-        pydantic_desc: Optional[str] = None,
-        info_dict: Optional[Dict[str, Any]] = None,
-        comment: Optional[str] = None,
-    ) -> Tuple[Optional[str], Dict[str, Any]]:
+        custom_desc: str | None = None,
+        pydantic_desc: str | None = None,
+        info_dict: dict[str, Any] | None = None,
+        comment: str | None = None,
+    ) -> tuple[str | None, dict[str, Any]]:
         """
         Centralized helper to determine the best description from multiple sources.
         """
@@ -314,11 +315,11 @@ class SchemaInspector:
     def _process_column_for_llm_schema(
         self,
         col_name: str,
-        col_data: Dict[str, Any],
-        pydantic_fields: Dict[str, Any],
-        custom_descs: Dict[str, str],
+        col_data: dict[str, Any],
+        pydantic_fields: dict[str, Any],
+        custom_descs: dict[str, str],
         model_name: str,
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """Processes a single column to generate its LLM schema representation."""
         python_type_for_mapping = str(col_data.get("python_type", ""))
         pydantic_field_description = None
@@ -374,8 +375,8 @@ class SchemaInspector:
         return col_name, formatted_string
 
     def _process_relationship_for_llm_schema(
-        self, rel_name: str, rel_data: Dict[str, Any], custom_descs: Dict[str, str]
-    ) -> Optional[Tuple[str, str]]:
+        self, rel_name: str, rel_data: dict[str, Any], custom_descs: dict[str, str]
+    ) -> tuple[str, str] | None:
         """Processes a single relationship to generate its LLM schema representation."""
         related_model_name = rel_data.get("related_model_name", "UnknownRelatedModel")
 
@@ -426,7 +427,7 @@ class SchemaInspector:
         return ref_field_name_for_llm, formatted_string
 
     def _generate_model_level_description(
-        self, model_name: str, raw_schema: Dict[str, Any], custom_descs: Dict[str, str]
+        self, model_name: str, raw_schema: dict[str, Any], custom_descs: dict[str, str]
     ) -> str:
         """Generates the complete model-level description block."""
         description, other_info = self._get_prioritized_description(
@@ -455,8 +456,8 @@ class SchemaInspector:
 
     def generate_llm_schema_from_models(
         self,
-        initial_model_classes: List[Type[SQLModel]],
-        custom_field_descriptions: Optional[Dict[str, Dict[str, str]]] = None,
+        initial_model_classes: list[type[SQLModel]],
+        custom_field_descriptions: dict[str, dict[str, str]] | None = None,
     ) -> str:
         """
         Generates an LLM-friendly schema representation for a list of SQLAlchemy models.
@@ -464,7 +465,7 @@ class SchemaInspector:
         if custom_field_descriptions is None:
             custom_field_descriptions = {}
 
-        all_sqla_models_to_document: List[Type[Any]] = []
+        all_sqla_models_to_document: list[type[Any]] = []
         for root_model_class in initial_model_classes:
             self._collect_all_sqla_models_recursively(
                 root_model_class, all_sqla_models_to_document, set()
@@ -530,8 +531,8 @@ class SchemaInspector:
 
     def discover_sqlmodels_from_root(
         self,
-        root_sqlmodel_class: Type[SQLModel],
-    ) -> List[Type[SQLModel]]:
+        root_sqlmodel_class: type[SQLModel],
+    ) -> list[type[SQLModel]]:
         """
         Discovers all unique SQLModel classes starting from a root SQLModel class.
         """
@@ -539,7 +540,7 @@ class SchemaInspector:
             self.logger.warning(f"{root_sqlmodel_class} is not a valid SQLModel class.")
             return []
 
-        all_discovered_models: List[Type[SQLModel]] = []
+        all_discovered_models: list[type[SQLModel]] = []
         try:
             self._collect_all_sqla_models_recursively(
                 current_model_class=root_sqlmodel_class,

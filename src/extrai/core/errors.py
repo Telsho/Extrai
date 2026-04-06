@@ -5,7 +5,7 @@ This module consolidates exceptions from various core components
 to provide a single point of reference for error types.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -70,8 +70,8 @@ class LLMOutputParseError(LLMClientError):
     def __init__(
         self,
         message: str,
-        raw_content: Optional[str] = None,
-        original_exception: Optional[Exception] = None,
+        raw_content: str | None = None,
+        original_exception: Exception | None = None,
     ):
         super().__init__(message)
         self.raw_content = raw_content
@@ -94,8 +94,8 @@ class LLMOutputValidationError(LLMClientError):
     def __init__(
         self,
         message: str,
-        parsed_json: Optional[Dict[str, Any]] = None,
-        validation_error: Optional[Any] = None,
+        parsed_json: dict[str, Any] | None = None,
+        validation_error: Any | None = None,
     ):  # PydanticValidationError type hint can be 'Any' for simplicity here or more specific if PydanticValidationError is imported
         super().__init__(message)
         self.parsed_json = parsed_json
@@ -177,6 +177,6 @@ class SQLModelInstantiationValidationError(SQLModelCodeGeneratorError):
 class ExampleGenerationError(Exception):
     """Custom exception for errors during example JSON generation."""
 
-    def __init__(self, message: str, original_exception: Optional[Exception] = None):
+    def __init__(self, message: str, original_exception: Exception | None = None):
         super().__init__(message)
         self.original_exception = original_exception

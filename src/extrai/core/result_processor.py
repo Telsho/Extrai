@@ -1,23 +1,21 @@
+import json
 import logging
 import uuid
 from typing import (
-    List,
-    Dict,
     Any,
-    Optional,
-    Type,
-    get_origin,
-    get_args,
-    Union,
     NamedTuple,
+    Union,
+    get_args,
+    get_origin,
 )
-from sqlalchemy.orm import Session
+
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 from sqlmodel import SQLModel
 
-from .model_registry import ModelRegistry
 from .errors import HydrationError, WorkflowError
+from .model_registry import ModelRegistry
 
 SQLModelInstance = SQLModel
 
@@ -29,8 +27,8 @@ class DatabaseWriterError(Exception):
 
 
 class PrimaryKeyInfo(NamedTuple):
-    name: Optional[str]
-    type: Optional[Type[Any]]
+    name: str | None
+    type: type[Any] | None
     has_uuid_factory: bool
 
 
@@ -45,9 +43,9 @@ class DirectHydrator:
     def __init__(
         self,
         session: Session,
-        logger: Optional[logging.Logger] = None,
-        original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = None,
-        all_instances: List[SQLModelInstance] = None,
+        logger: logging.Logger | None = None,
+        original_pk_map: dict[tuple[str, Any], SQLModelInstance] = None,
+        all_instances: list[SQLModelInstance] = None,
     ):
         self.session = session
         self.logger = logger or logging.getLogger(__name__)
@@ -56,13 +54,19 @@ class DirectHydrator:
 
     def hydrate(
         self,
-        data: List[Dict[str, Any]],
-        model_map: Dict[str, Type[SQLModel]],
-        default_model_class: Optional[Type[SQLModel]] = None,
-    ) -> List[SQLModelInstance]:
+        data: list[dict[str, Any]],
+        model_map: dict[str, type[SQLModel]],
+        default_model_class: type[SQLModel] | None = None,
+    ) -> list[SQLModelInstance]:
         instances = []
         for item in data:
             try:
+                if isinstance(item, str):
+                    try:
+                        item = json.loads(item)
+                    except json.JSONDecodeError:
+                        self.logger.error(f"Failed to decode JSON string: {item}")
+                        continue
                 # Determine model class
                 _type = item.get("_type")
                 model_class = None
@@ -89,9 +93,9 @@ class DirectHydrator:
 
     def _hydrate_recursive(
         self,
-        data: Dict[str, Any],
-        model_class: Type[SQLModel],
-        model_map: Dict[str, Type[SQLModel]],
+        data: dict[str, Any],
+        model_class: type[SQLModel],
+        model_map: dict[str, type[SQLModel]],
     ) -> SQLModelInstance:
         """
         Recursively hydrates an instance and its relationships.
@@ -190,9 +194,9 @@ class SQLAlchemyHydrator:
     def __init__(
         self,
         session: Session,
-        logger: Optional[logging.Logger] = None,
-        original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = None,
-        all_instances: List[SQLModelInstance] = None,
+        logger: logging.Logger | None = None,
+        original_pk_map: dict[tuple[str, Any], SQLModelInstance] = None,
+        all_instances: list[SQLModelInstance] = None,
     ):
         """
         Initializes the Hydrator.
@@ -203,14 +207,14 @@ class SQLAlchemyHydrator:
             logger: Optional logger instance.
         """
         self.session: Session = session
-        self.temp_id_to_instance_map: Dict[
+        self.temp_id_to_instance_map: dict[
             str, SQLModelInstance
         ] = {}  # Stores _temp_id -> SQLModel instance
         self.original_pk_map = original_pk_map if original_pk_map is not None else {}
         self.all_instances = all_instances if all_instances is not None else []
         self.logger = logger or logging.getLogger(__name__)
 
-    def _filter_special_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _filter_special_fields(self, data: dict[str, Any]) -> dict[str, Any]:
         """Removes _temp_id, _type, and relationship reference fields before Pydantic validation."""
         return {
             k: v
@@ -220,7 +224,7 @@ class SQLAlchemyHydrator:
             and not k.endswith("_ref_ids")
         }
 
-    def _validate_entities_list(self, entities_list: List[Dict[str, Any]]) -> None:
+    def _validate_entities_list(self, entities_list: list[dict[str, Any]]) -> None:
         """Performs initial validation on the input entities list."""
         if not isinstance(entities_list, list):
             raise TypeError(
@@ -235,7 +239,7 @@ class SQLAlchemyHydrator:
                 f"Found an item of type: {type(first_non_dict)}."
             )
 
-    def _get_primary_key_info(self, model_class: Type[SQLModel]) -> PrimaryKeyInfo:
+    def _get_primary_key_info(self, model_class: type[SQLModel]) -> PrimaryKeyInfo:
         """Introspects the model to find primary key details."""
         for field_name, model_field in model_class.model_fields.items():
             if getattr(model_field, "primary_key", False):
@@ -268,7 +272,7 @@ class SQLAlchemyHydrator:
         return PrimaryKeyInfo(name=None, type=None, has_uuid_factory=False)
 
     def _generate_pk_if_needed(
-        self, instance: SQLModelInstance, model_class: Type[SQLModel]
+        self, instance: SQLModelInstance, model_class: type[SQLModel]
     ) -> None:
         """Generates a primary key for the instance if it's needed."""
         pk_info = self._get_primary_key_info(model_class)
@@ -288,8 +292,8 @@ class SQLAlchemyHydrator:
 
     def _create_single_instance(
         self,
-        entity_data: Dict[str, Any],
-        model_schema_map: Dict[str, Type[SQLModel]],
+        entity_data: dict[str, Any],
+        model_schema_map: dict[str, type[SQLModel]],
     ) -> None:
         """Creates a single SQLModel instance from its dictionary representation."""
         _temp_id = entity_data.get("_temp_id")
@@ -312,7 +316,7 @@ class SQLAlchemyHydrator:
 
         filtered_data = self._filter_special_fields(entity_data.copy())
 
-        pk_field_name: Optional[str] = None
+        pk_field_name: str | None = None
         for field_name, model_field in model_class.model_fields.items():
             if getattr(model_field, "primary_key", False):
                 pk_field_name = field_name
@@ -345,8 +349,8 @@ class SQLAlchemyHydrator:
 
     def _create_and_map_instances(
         self,
-        entities_list: List[Dict[str, Any]],
-        model_schema_map: Dict[str, Type[SQLModel]],
+        entities_list: list[dict[str, Any]],
+        model_schema_map: dict[str, type[SQLModel]],
     ) -> None:
         """Pass 1: Creates and maps all SQLModel instances."""
         for entity_data in entities_list:
@@ -357,7 +361,7 @@ class SQLAlchemyHydrator:
         instance: SQLModelInstance,
         relation_name: str,
         ref_id: Any,
-        entity_data: Dict[str, Any],
+        entity_data: dict[str, Any],
     ) -> None:
         """Handles the logic for a single to-one relationship."""
         if ref_id is None:
@@ -380,7 +384,7 @@ class SQLAlchemyHydrator:
         instance: SQLModelInstance,
         relation_name: str,
         ref_ids: Any,
-        entity_data: Dict[str, Any],
+        entity_data: dict[str, Any],
     ) -> None:
         """Handles the logic for a single to-many relationship."""
         _temp_id = entity_data.get("_temp_id", "N/A")
@@ -405,7 +409,7 @@ class SQLAlchemyHydrator:
                 )
         setattr(instance, relation_name, related_instances)
 
-    def _link_relations_for_instance(self, entity_data: Dict[str, Any]) -> None:
+    def _link_relations_for_instance(self, entity_data: dict[str, Any]) -> None:
         """Links relationships for a single instance by dispatching to specialized helpers."""
         _temp_id = entity_data["_temp_id"]
         instance = self.temp_id_to_instance_map[_temp_id]
@@ -424,7 +428,7 @@ class SQLAlchemyHydrator:
                         instance, relation_name, value, entity_data
                     )
 
-    def _link_relationships(self, entities_list: List[Dict[str, Any]]) -> None:
+    def _link_relationships(self, entities_list: list[dict[str, Any]]) -> None:
         """Pass 2: Links all created instances together."""
         for entity_data in entities_list:
             self._link_relations_for_instance(entity_data)
@@ -436,9 +440,9 @@ class SQLAlchemyHydrator:
 
     def hydrate(
         self,
-        entities_list: List[Dict[str, Any]],
-        model_schema_map: Dict[str, Type[SQLModel]],
-    ) -> List[SQLModelInstance]:
+        entities_list: list[dict[str, Any]],
+        model_schema_map: dict[str, type[SQLModel]],
+    ) -> list[SQLModelInstance]:
         """
         Hydrates SQLModel objects from a list of entity data dictionaries.
         """
@@ -458,7 +462,7 @@ class SQLAlchemyHydrator:
 
 
 def persist_objects(
-    db_session: Session, objects_to_persist: List[Any], logger: logging.Logger
+    db_session: Session, objects_to_persist: list[Any], logger: logging.Logger
 ) -> None:
     """
     Persists a list of SQLAlchemy objects to the database using the provided session.
@@ -518,15 +522,15 @@ class ResultProcessor:
         self.model_registry = model_registry
         self.analytics_collector = analytics_collector
         self.logger = logger
-        self.original_pk_map: Dict[tuple[str, Any], SQLModelInstance] = {}
-        self.all_hydrated_instances: List[SQLModelInstance] = []
+        self.original_pk_map: dict[tuple[str, Any], SQLModelInstance] = {}
+        self.all_hydrated_instances: list[SQLModelInstance] = []
 
     def hydrate(
         self,
-        results: List[Dict[str, Any]],
-        db_session: Optional[Session] = None,
-        default_model_type: Optional[str] = None,
-    ) -> List[Any]:
+        results: list[dict[str, Any]],
+        db_session: Session | None = None,
+        default_model_type: str | None = None,
+    ) -> list[Any]:
         """
         Hydrates dictionaries into SQLModel objects.
 
@@ -604,7 +608,7 @@ class ResultProcessor:
             if db_session is None and session:
                 session.close()
 
-    def persist(self, objects: List[Any], db_session: Session):
+    def persist(self, objects: list[Any], db_session: Session):
         """Persists objects to database."""
         if not objects:
             self.logger.info("No objects to persist")
@@ -626,7 +630,7 @@ class ResultProcessor:
             raise WorkflowError(f"Persistence failed: {e}") from e
 
     def _link_foreign_keys(
-        self, instances: Optional[List[SQLModelInstance]] = None
+        self, instances: list[SQLModelInstance] | None = None
     ) -> None:
         """
         Links foreign keys for all hydrated instances before persisting.
@@ -639,8 +643,8 @@ class ResultProcessor:
 
     def _perform_fk_recovery(
         self,
-        instances: List[SQLModelInstance],
-        original_pk_map: Dict[tuple[str, Any], SQLModelInstance],
+        instances: list[SQLModelInstance],
+        original_pk_map: dict[tuple[str, Any], SQLModelInstance],
     ) -> None:
         """
         Scans all hydrated instances for Foreign Key fields that are set (not None)
@@ -691,7 +695,7 @@ class ResultProcessor:
                 f"Universal FK Recovery: Restored {count_recovered} relationships."
             )
 
-    def _get_or_create_session(self, db_session: Optional[Session]) -> Session:
+    def _get_or_create_session(self, db_session: Session | None) -> Session:
         """Creates temporary in-memory session if none provided."""
         if db_session:
             return db_session

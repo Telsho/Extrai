@@ -1,11 +1,12 @@
-from typing import Any, Dict, Set, Optional
-from sqlmodel import SQLModel
+from typing import Any
+
 from sqlalchemy.orm.collections import InstrumentedList
+from sqlmodel import SQLModel
 
 
 def serialize_sqlmodel_with_relationships(
-    obj: SQLModel, seen: Optional[Set[int]] = None
-) -> Dict[str, Any]:
+    obj: SQLModel, seen: set[int] | None = None
+) -> dict[str, Any]:
     """
     Recursively serializes a SQLModel instance, including its loaded relationships.
     Uses model_dump(mode='json') to handle basic types (including Decimal -> str/float).
@@ -67,3 +68,47 @@ def make_json_serializable(obj: Any) -> Any:
     elif isinstance(obj, list):
         return [make_json_serializable(item) for item in obj]
     return obj
+
+
+def resolve_step_param(
+    param: str | list[str], step_index: int = 0, total_steps: int = 1
+) -> str:
+    """
+    Resolves a parameter that can be a single string or a list of strings
+    to the specific string for the current step.
+
+    Args:
+        param: The parameter value (str or list[str])
+        step_index: The current step index (0-based)
+        total_steps: The total number of steps in the process
+
+    Returns:
+        The string value for the current step.
+
+    Raises:
+        ValueError: If list length does not match requirements.
+    """
+    if isinstance(param, str):
+        return param
+
+    if not isinstance(param, list):
+        return str(param) if param is not None else ""
+
+    if not param:
+        return ""
+
+    if len(param) == 1:
+        return param[0]
+
+    if len(param) != total_steps:
+        raise ValueError(
+            f"Parameter list has {len(param)} elements, but process has {total_steps} steps. "
+            "Pass a single string, a 1-element list, or a list matching the number of steps."
+        )
+
+    if step_index < 0 or step_index >= len(param):
+        raise ValueError(
+            f"Step index {step_index} out of bounds for parameter list of length {len(param)}"
+        )
+
+    return param[step_index]

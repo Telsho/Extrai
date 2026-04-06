@@ -1,9 +1,10 @@
+from typing import Any
+
 import jsonschema
-from typing import Any, Dict
 
 
 def is_json_valid(
-    json_data_to_validate: Any, json_schema_definition: Dict[str, Any]
+    json_data_to_validate: Any, json_schema_definition: dict[str, Any]
 ) -> bool:
     """
     Validates JSON data against a JSON schema.
