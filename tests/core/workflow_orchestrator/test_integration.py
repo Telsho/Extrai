@@ -87,12 +87,12 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         expected_consensus_input = [revision_content] * 2
 
         with mock.patch.object(
-            self.orchestrator.pipeline.llm_runner.consensus,
-            "get_consensus",
-            return_value=(mock_consensus_output, mock_analytics_for_clear_consensus),
-        ) as mock_get_consensus_call:
+            self.orchestrator.pipeline.llm_runner.consensus_runner,
+            "run",
+            return_value=mock_consensus_output,
+        ) as mock_run_call:
             await self.orchestrator.synthesize(["input"], self.db_session)
-            mock_get_consensus_call.assert_called_once_with(expected_consensus_input)
+            mock_run_call.assert_called_once_with(expected_consensus_input)
 
         self.assertEqual(self.mock_llm_client1.call_count, 1)
         self.assertEqual(self.mock_llm_client2.call_count, 1)

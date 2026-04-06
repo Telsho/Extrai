@@ -1,19 +1,20 @@
 # extrai/core/workflow_orchestrator.py
 
-import asyncio
 import logging
-from typing import List, Dict, Any, Type, Optional, Union
-from extrai.core.base_llm_client import BaseLLMClient
-from extrai.core.batch_models import BatchJobStatus, BatchProcessResult
+from typing import Any
+
 from sqlalchemy.orm import Session
 from sqlmodel import SQLModel
 
+from extrai.core.base_llm_client import BaseLLMClient
+from extrai.core.batch.batch_pipeline import BatchPipeline
+from extrai.core.batch_models import BatchJobStatus, BatchProcessResult
+
+from .analytics_collector import WorkflowAnalyticsCollector
 from .extraction_config import ExtractionConfig
 from .extraction_pipeline import ExtractionPipeline
-from .batch_pipeline import BatchPipeline
-from .result_processor import ResultProcessor
 from .model_registry import ModelRegistry
-from .analytics_collector import WorkflowAnalyticsCollector
+from .result_processor import ResultProcessor
 
 
 class WorkflowOrchestrator:
@@ -29,17 +30,19 @@ class WorkflowOrchestrator:
 
     def __init__(
         self,
-        root_sqlmodel_class: Type[SQLModel],
-        llm_client: Union[BaseLLMClient, List[BaseLLMClient]],
+        root_sqlmodel_class: type[SQLModel],
+        llm_client: BaseLLMClient | list[BaseLLMClient],
         num_llm_revisions: int = 3,
+        num_counting_revisions: int = 3,
         max_validation_retries_per_revision: int = 2,
         consensus_threshold: float = 0.51,
+        counting_levenshtein_threshold: float = 0.85,
         conflict_resolver=None,
-        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+        analytics_collector: WorkflowAnalyticsCollector | None = None,
         use_hierarchical_extraction: bool = False,
         use_structured_output: bool = False,
-        logger: Optional[logging.Logger] = None,
-        counting_llm_client: Optional[BaseLLMClient] = None,
+        logger: logging.Logger | None = None,
+        counting_llm_client: BaseLLMClient | None = None,
     ):
         self.logger = logger or self._create_default_logger()
 
@@ -49,8 +52,10 @@ class WorkflowOrchestrator:
         # Create shared config
         self.config = ExtractionConfig(
             num_llm_revisions=num_llm_revisions,
+            num_counting_revisions=num_counting_revisions,
             max_validation_retries_per_revision=max_validation_retries_per_revision,
             consensus_threshold=consensus_threshold,
+            counting_levenshtein_threshold=counting_levenshtein_threshold,
             conflict_resolver=conflict_resolver,
             use_hierarchical_extraction=use_hierarchical_extraction,
             use_structured_output=use_structured_output,
@@ -94,17 +99,17 @@ class WorkflowOrchestrator:
 
     async def synthesize(
         self,
-        input_strings: List[str],
-        db_session_for_hydration: Optional[Session] = None,
+        input_strings: list[str],
+        db_session_for_hydration: Session | None = None,
         extraction_example_json: str = "",
-        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
-        custom_extraction_process: str = "",
-        custom_extraction_guidelines: str = "",
-        custom_final_checklist: str = "",
-        custom_context: str = "",
+        extraction_example_object: SQLModel | list[SQLModel] | None = None,
+        custom_extraction_process: str | list[str] = "",
+        custom_extraction_guidelines: str | list[str] = "",
+        custom_final_checklist: str | list[str] = "",
+        custom_context: str | list[str] = "",
         count_entities: bool = False,
-        custom_counting_context: str = "",
-    ) -> List[Any]:
+        custom_counting_context: str | list[str] = "",
+    ) -> list[Any]:
         """Executes extraction pipeline and returns hydrated objects."""
         if not input_strings:
             raise ValueError("Input strings list cannot be empty.")
@@ -129,17 +134,17 @@ class WorkflowOrchestrator:
 
     async def synthesize_and_save(
         self,
-        input_strings: List[str],
+        input_strings: list[str],
         db_session: Session,
         extraction_example_json: str = "",
-        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
-        custom_extraction_process: str = "",
-        custom_extraction_guidelines: str = "",
-        custom_final_checklist: str = "",
-        custom_context: str = "",
+        extraction_example_object: SQLModel | list[SQLModel] | None = None,
+        custom_extraction_process: str | list[str] = "",
+        custom_extraction_guidelines: str | list[str] = "",
+        custom_final_checklist: str | list[str] = "",
+        custom_context: str | list[str] = "",
         count_entities: bool = False,
-        custom_counting_context: str = "",
-    ) -> List[Any]:
+        custom_counting_context: str | list[str] = "",
+    ) -> list[Any]:
         """Synthesizes and persists objects in a single transaction."""
         hydrated_objects = await self.synthesize(
             input_strings=input_strings,
@@ -163,19 +168,19 @@ class WorkflowOrchestrator:
 
     async def synthesize_batch(
         self,
-        input_strings: List[str],
+        input_strings: list[str],
         db_session: Session,
         extraction_example_json: str = "",
-        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
-        custom_extraction_process: str = "",
-        custom_extraction_guidelines: str = "",
-        custom_final_checklist: str = "",
-        custom_context: str = "",
+        extraction_example_object: SQLModel | list[SQLModel] | None = None,
+        custom_extraction_process: str | list[str] = "",
+        custom_extraction_guidelines: str | list[str] = "",
+        custom_final_checklist: str | list[str] = "",
+        custom_context: str | list[str] = "",
         count_entities: bool = False,
-        custom_counting_context: str = "",
+        custom_counting_context: str | list[str] = "",
         wait_for_completion: bool = False,
         poll_interval: int = 60,
-    ) -> Union[str, BatchProcessResult]:
+    ) -> str | BatchProcessResult:
         """Submits a batch job.
 
         Args:
@@ -215,16 +220,16 @@ class WorkflowOrchestrator:
         db_session: Session,
         start_from_step_index: int,
         extraction_example_json: str = "",
-        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
-        custom_extraction_process: str = "",
-        custom_extraction_guidelines: str = "",
-        custom_final_checklist: str = "",
-        custom_context: str = "",
+        extraction_example_object: SQLModel | list[SQLModel] | None = None,
+        custom_extraction_process: str | list[str] = "",
+        custom_extraction_guidelines: str | list[str] = "",
+        custom_final_checklist: str | list[str] = "",
+        custom_context: str | list[str] = "",
         count_entities: bool = False,
-        custom_counting_context: str = "",
+        custom_counting_context: str | list[str] = "",
         wait_for_completion: bool = False,
         poll_interval: int = 60,
-    ) -> Union[str, BatchProcessResult]:
+    ) -> str | BatchProcessResult:
         """
         Creates a new batch cycle continuing from a previous batch's state.
         Copies completed steps up to start_from_step_index into the new batch.
@@ -274,17 +279,8 @@ class WorkflowOrchestrator:
             db_session,
         )
 
-        if result.status.name == "COMPLETED" and result.hydrated_objects:
-            try:
-                # Add the PK map from the batch pipeline to the main result processor
-                if result.original_pk_map:
-                    self.result_processor.original_pk_map.update(result.original_pk_map)
-
-                self.result_processor.persist(result.hydrated_objects, db_session)
-            except Exception as e:
-                self.logger.error(f"Persistence failed for batch {root_batch_id}: {e}")
-                result.message = f"Extraction successful but persistence failed: {e}"
-                raise
+        if result.status.name == "COMPLETED" and result.hydrated_objects and result.original_pk_map:
+             self.result_processor.original_pk_map.update(result.original_pk_map)
 
         return result
 
@@ -295,62 +291,24 @@ class WorkflowOrchestrator:
         Polls the batch job status until it reaches a terminal state.
         Automatically handles hierarchical extraction steps by re-polling
         if an intermediate step is submitted.
-
-        Useful for scripts or simple workflows where blocking is acceptable.
         """
-        self.logger.info(f"Monitoring batch job {root_batch_id}...")
-
-        while True:
-            status = await self.get_batch_status(root_batch_id, db_session)
-            self.logger.info(f"Batch Status: {status}")
-
-            if status in [
-                BatchJobStatus.READY_TO_PROCESS,
-                BatchJobStatus.COUNTING_READY_TO_PROCESS,
-            ]:
-                self.logger.info("Batch ready! Processing...")
-                result = await self.process_batch(root_batch_id, db_session)
-
-                if result.status == BatchJobStatus.COMPLETED:
-                    self.logger.info("Batch workflow completed successfully.")
-                    return result
-
-                elif result.status in [
-                    BatchJobStatus.PROCESSING,
-                    BatchJobStatus.SUBMITTED,
-                ]:
-                    self.logger.info(
-                        f"Intermediate step processed (new status: {result.status}). Continuing workflow..."
-                    )
-                    continue
-
-                else:
-                    self.logger.error(f"Batch processing failed: {result.message}")
-                    return result
-
-            elif status in [
-                BatchJobStatus.COMPLETED,
-                BatchJobStatus.FAILED,
-                BatchJobStatus.CANCELLED,
-            ]:
-                # If it's already COMPLETED (e.g. checked before monitoring started), retrieve results
-                if status == BatchJobStatus.COMPLETED:
-                    self.logger.info("Batch already completed. Retrieving results...")
-                    return await self.process_batch(root_batch_id, db_session)
-
-                self.logger.error(f"Batch job ended with status: {status}")
-                return BatchProcessResult(
-                    status=status, message=f"Batch ended with status: {status}"
-                )
-
-            await asyncio.sleep(poll_interval)
+        return await self.batch_pipeline.monitor_batch_job(
+            root_batch_id, db_session, poll_interval
+        )
 
     # ==================== Analytics ====================
 
-    def get_analytics_report(self) -> Dict[str, Any]:
+    def get_analytics_report(self) -> dict[str, Any]:
         """Retrieves analytics report."""
         return self.analytics_collector.get_report()
 
     def get_analytics_collector(self) -> WorkflowAnalyticsCollector:
         """Returns the analytics collector instance."""
         return self.analytics_collector
+
+    def get_total_steps(self, count_entities: bool) -> int:
+        """Calculates the total number of steps for a workflow."""
+        num_models = len(self.model_registry.models)
+        if self.config.use_hierarchical_extraction and count_entities:
+            return num_models * 2
+        return num_models

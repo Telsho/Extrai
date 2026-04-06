@@ -109,48 +109,24 @@ class TestWorkflowOrchestratorBatch(unittest.IsolatedAsyncioTestCase):
             "Extraction successful but persistence failed", process_result.message
         )
 
-    async def test_monitor_batch_job_counting_transition(self):
+    async def test_monitor_batch_job_delegation(self):
         batch_id = "batch_123"
         db_session = mock.Mock(spec=Session)
+        poll_interval = 5
 
-        # Mock status sequence:
-        # 1. COUNTING_READY_TO_PROCESS -> triggers first process_batch
-        # 2. PROCESSING -> waits
-        # 3. READY_TO_PROCESS -> triggers second process_batch
-        self.orchestrator.batch_pipeline.get_status.side_effect = [
-            BatchJobStatus.COUNTING_READY_TO_PROCESS,
-            BatchJobStatus.PROCESSING,
-            BatchJobStatus.READY_TO_PROCESS,
-        ]
-
-        # Mock process results
-        # 1. Result of processing COUNTING_READY: new batch submitted (PROCESSING)
-        process_result_1 = BatchProcessResult(
-            status=BatchJobStatus.PROCESSING,
-            message="Transitioned from counting to extraction",
-        )
-        # 2. Result of processing READY_TO_PROCESS: completed
-        process_result_2 = BatchProcessResult(
+        expected_result = BatchProcessResult(
             status=BatchJobStatus.COMPLETED, hydrated_objects=["obj1"]
         )
+        self.orchestrator.batch_pipeline.monitor_batch_job.return_value = expected_result
 
-        self.orchestrator.batch_pipeline.process_batch.side_effect = [
-            process_result_1,
-            process_result_2,
-        ]
-
-        # Run monitoring with short poll interval
         result = await self.orchestrator.monitor_batch_job(
-            batch_id, db_session, poll_interval=0.001
+            batch_id, db_session, poll_interval
         )
 
-        # Verify final result
-        self.assertEqual(result.status, BatchJobStatus.COMPLETED)
-        self.assertEqual(result.hydrated_objects, ["obj1"])
-
-        # Verify calls
-        self.assertEqual(self.orchestrator.batch_pipeline.get_status.call_count, 3)
-        self.assertEqual(self.orchestrator.batch_pipeline.process_batch.call_count, 2)
+        self.orchestrator.batch_pipeline.monitor_batch_job.assert_called_once_with(
+            batch_id, db_session, poll_interval
+        )
+        self.assertEqual(result, expected_result)
 
 
 if __name__ == "__main__":
