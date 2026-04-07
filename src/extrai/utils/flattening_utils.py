@@ -1,15 +1,15 @@
-from typing import Dict, List, Any, Union, Tuple
+from typing import Any, Union
 
 # Define type aliases for clarity
 JSONValue = Union[str, int, float, bool, None]
-JSONObject = Dict[str, Any]
-JSONArray = List[Any]
-Path = Tuple[Union[str, int], ...]
-FlattenedJSON = Dict[Path, JSONValue]
+JSONObject = dict[str, Any]
+JSONArray = list[Any]
+Path = tuple[str | int, ...]
+FlattenedJSON = dict[Path, JSONValue]
 
 
 def flatten_json(
-    nested_json: Union[JSONObject, JSONArray],
+    nested_json: JSONObject | JSONArray,
     parent_path: Path = (),
     separator: str = ".",
 ) -> FlattenedJSON:
@@ -64,7 +64,7 @@ def flatten_json(
 
 def unflatten_json(
     flat_json: FlattenedJSON,
-) -> Union[JSONObject, JSONArray, JSONValue, None]:
+) -> JSONObject | JSONArray | JSONValue | None:
     """
     Unflattens a flat dictionary (with tuple paths) back into a nested JSON-like structure.
 
@@ -118,7 +118,7 @@ def unflatten_json(
         # or build lists dynamically.
         # For list items to be correctly placed, they need to be filled.
         # If paths are like {(0, 'a'): 1, (2, 'b'): 1}, we need list of size 3.
-        root: Union[JSONObject, JSONArray] = [None] * (max_index + 1)
+        root: JSONObject | JSONArray = [None] * (max_index + 1)
     else:
         root = {}
 

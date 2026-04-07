@@ -1,8 +1,8 @@
-from typing import Any, Dict, List
 from difflib import SequenceMatcher
+from typing import Any
 
 
-def normalize_json_revisions(revisions: List[Any]) -> List[Any]:
+def normalize_json_revisions(revisions: list[Any]) -> list[Any]:
     """
     Aligns arrays across revisions using similarity-based matching.
     Handles different structures and ensures consistent ordering.
@@ -30,46 +30,72 @@ def normalize_json_revisions(revisions: List[Any]) -> List[Any]:
 
 
 def align_entity_arrays(
-    arrays: List[List[Dict[str, Any]]],
-) -> List[List[Dict[str, Any]]]:
+    arrays: list[list[dict[str, Any]]],
+    truncate_to_min_length: bool = True,
+) -> list[list[dict[str, Any]]]:
     """
     Aligns multiple arrays of entities so similar objects are in the same positions.
-    Uses the first array as reference and matches objects based on similarity.
+    When truncate_to_min_length is True, uses the minimum length across all arrays.
+    When False, uses the longest array as reference and pads shorter arrays with empty dicts.
     """
     if not arrays or not any(arrays):
         return arrays
 
-    # Validate all arrays have the same length
     lengths = [len(arr) for arr in arrays]
-    if len(set(lengths)) > 1:
-        print(
-            f"Warning: Arrays have different lengths {lengths}. Using minimum length."
-        )
-        min_length = min(lengths)
-        arrays = [arr[:min_length] for arr in arrays]
 
-    # Use first array as reference
-    reference = arrays[0]
-    aligned = [reference[:]]
+    if truncate_to_min_length:
+        if len(set(lengths)) > 1:
+            print(
+                f"Warning: Arrays have different lengths {lengths}. Using minimum length."
+            )
+            min_length = min(lengths)
+            arrays = [arr[:min_length] for arr in arrays]
 
-    # Align each subsequent array to match the reference
-    for arr in arrays[1:]:
+        reference = arrays[0]
+    else:
+        # Find the longest array to use as reference
+        max_idx = lengths.index(max(lengths))
+        reference = arrays[max_idx]
+
+    aligned_results = []
+
+    # Align each array to match the reference
+    for arr in arrays:
+        if arr is reference and truncate_to_min_length:
+            aligned_results.append(reference[:])
+            continue
+
+        if arr is reference:
+            # If this is the reference array (and we didn't truncate),
+            # we still want to add it as is
+            aligned_results.append(reference[:])
+            continue
+
         reordered = []
         used_indices = set()
 
         for ref_obj in reference:
             # Find best match in current array
             best_idx = find_best_match(ref_obj, arr, used_indices)
-            reordered.append(arr[best_idx])
-            used_indices.add(best_idx)
 
-        aligned.append(reordered)
+            if best_idx != -1:
+                reordered.append(arr[best_idx])
+                used_indices.add(best_idx)
+            elif not truncate_to_min_length:
+                # Pad with empty dict if no match found and we aren't truncating
+                reordered.append({})
+            else:
+                # This case shouldn't happen if we truncated to min length,
+                # but adding a fallback just in case
+                reordered.append({})
 
-    return aligned
+        aligned_results.append(reordered)
+
+    return aligned_results
 
 
 def find_best_match(
-    target: Dict[str, Any], candidates: List[Dict[str, Any]], used_indices: set
+    target: dict[str, Any], candidates: list[dict[str, Any]], used_indices: set
 ) -> int:
     """
     Finds the index of the most similar object in candidates that hasn't been used.
@@ -89,7 +115,7 @@ def find_best_match(
     return best_idx
 
 
-def calculate_similarity(obj1: Dict[str, Any], obj2: Dict[str, Any]) -> float:
+def calculate_similarity(obj1: dict[str, Any], obj2: dict[str, Any]) -> float:
     """
     Calculates similarity score between two objects (0-1, higher is more similar).
     Handles different field types recursively.

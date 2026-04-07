@@ -2,11 +2,11 @@ import datetime
 import enum
 from typing import (
     Any,
-    Dict,
-    List,
     Optional,
     get_args,
     get_origin,
+)
+from typing import (
     Union as TypingUnion,
 )
 
@@ -24,21 +24,15 @@ def _process_union_types(args, recurse_func):
 
 # Handler registry for different type origins
 ORIGIN_HANDLERS = {
-    Optional: lambda args, r: r(args[0])
-    if args and args[0] is not type(None)
-    else "none",
-    list: lambda args, r: f"list[{','.join([r(arg) for arg in args])}]"
-    if args
-    else "list",
-    List: lambda args, r: f"list[{','.join([r(arg) for arg in args])}]"
-    if args
-    else "list",
-    dict: lambda args, r: f"dict[{r(args[0])},{r(args[1])}]"
-    if args and len(args) == 2
-    else "dict",
-    Dict: lambda args, r: f"dict[{r(args[0])},{r(args[1])}]"
-    if args and len(args) == 2
-    else "dict",
+    Optional: lambda args, r: (
+        r(args[0]) if args and args[0] is not type(None) else "none"
+    ),
+    list: lambda args, r: (
+        f"list[{','.join([r(arg) for arg in args])}]" if args else "list"
+    ),
+    dict: lambda args, r: (
+        f"dict[{r(args[0])},{r(args[1])}]" if args and len(args) == 2 else "dict"
+    ),
     TypingUnion: _process_union_types,
 }
 
@@ -117,7 +111,7 @@ SQL_TYPE_KEYWORDS = [
 
 
 # --- Handlers for complex and generic types ---
-def _handle_list_type(python_type_lower: str) -> Optional[str]:
+def _handle_list_type(python_type_lower: str) -> str | None:
     """Handles list[...] and array[...] type mappings."""
     if python_type_lower.startswith("list[") and python_type_lower.endswith("]"):
         inner_type_str = python_type_lower[5:-1]
@@ -126,7 +120,7 @@ def _handle_list_type(python_type_lower: str) -> Optional[str]:
     return None
 
 
-def _handle_dict_type(python_type_lower: str) -> Optional[str]:
+def _handle_dict_type(python_type_lower: str) -> str | None:
     """Handles dict[...] and object[...] type mappings."""
     if python_type_lower.startswith("dict[") and python_type_lower.endswith("]"):
         inner_types_str = python_type_lower[5:-1]
@@ -140,7 +134,7 @@ def _handle_dict_type(python_type_lower: str) -> Optional[str]:
     return None
 
 
-def _handle_union_type(python_type_lower: str) -> Optional[str]:
+def _handle_union_type(python_type_lower: str) -> str | None:
     """Handles union[...] type mappings."""
     if python_type_lower.startswith("union[") and python_type_lower.endswith("]"):
         inner_types_str = python_type_lower[6:-1]
@@ -160,7 +154,7 @@ def _handle_union_type(python_type_lower: str) -> Optional[str]:
 
 def _handle_generic_or_unknown_type(
     python_type_lower: str, sql_type_lower: str
-) -> Optional[str]:
+) -> str | None:
     """Handles ambiguous types like plain 'list' or 'dict' and unknown types."""
     if python_type_lower == "list":
         if "text" in sql_type_lower:  # Let the SQL keyword mapping handle this case

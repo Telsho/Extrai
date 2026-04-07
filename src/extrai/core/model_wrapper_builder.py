@@ -1,8 +1,9 @@
-from typing import Type, List, Optional, Any, Dict
-from pydantic import BaseModel, create_model, Field
-from sqlmodel import SQLModel
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field, create_model
 from sqlalchemy import inspect
 from sqlalchemy.orm import RelationshipProperty
+from sqlmodel import SQLModel
 
 
 class ModelWrapperBuilder:
@@ -13,11 +14,11 @@ class ModelWrapperBuilder:
     """
 
     def __init__(self):
-        self._generated_models: Dict[Type[SQLModel], Type[BaseModel]] = {}
+        self._generated_models: dict[type[SQLModel], type[BaseModel]] = {}
 
     def generate_wrapper_model(
-        self, root_sqlmodel: Type[SQLModel], include_relationships: bool = True
-    ) -> Type[BaseModel]:
+        self, root_sqlmodel: type[SQLModel], include_relationships: bool = True
+    ) -> type[BaseModel]:
         """
         Generates a Pydantic wrapper model for the given root SQLModel.
         This wrapper creates a hierarchy of Pydantic models where relationships
@@ -42,7 +43,7 @@ class ModelWrapperBuilder:
         wrapper_model = create_model(
             wrapper_name,
             entities=(
-                List[pydantic_model],
+                list[pydantic_model],
                 Field(
                     description=f"List of extracted {root_sqlmodel.__name__} entities."
                 ),
@@ -97,8 +98,8 @@ class ModelWrapperBuilder:
         return new_field_info
 
     def _create_pydantic_model_recursive(
-        self, sql_model: Type[SQLModel], include_relationships: bool = True
-    ) -> Type[BaseModel]:
+        self, sql_model: type[SQLModel], include_relationships: bool = True
+    ) -> type[BaseModel]:
         if sql_model in self._generated_models:
             return self._generated_models[sql_model]
 
@@ -135,7 +136,7 @@ class ModelWrapperBuilder:
 
                     if rel.uselist:
                         # List[NestedModel]
-                        field_type = List[nested_model]
+                        field_type = list[nested_model]
                         field_desc = f"List of {target_model.__name__} items."
                     else:
                         # NestedModel (Optional?)

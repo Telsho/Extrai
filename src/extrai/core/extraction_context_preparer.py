@@ -1,14 +1,16 @@
 import json
 import logging
-from typing import List, Optional, Union, Callable
+from collections.abc import Callable
+
 from sqlmodel import SQLModel
 
-from .model_registry import ModelRegistry
-from .example_json_generator import ExampleJSONGenerator, ExampleGenerationError
-from .analytics_collector import WorkflowAnalyticsCollector
-from .errors import WorkflowError
-from .base_llm_client import BaseLLMClient
 from extrai.utils.serialization_utils import serialize_sqlmodel_with_relationships
+
+from .analytics_collector import WorkflowAnalyticsCollector
+from .base_llm_client import BaseLLMClient
+from .errors import WorkflowError
+from .example_json_generator import ExampleGenerationError, ExampleJSONGenerator
+from .model_registry import ModelRegistry
 
 
 class ExtractionContextPreparer:
@@ -31,7 +33,7 @@ class ExtractionContextPreparer:
     async def prepare_example(
         self,
         extraction_example_json: str,
-        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]],
+        extraction_example_object: SQLModel | list[SQLModel] | None,
         client_provider: Callable[[], BaseLLMClient],
     ) -> str:
         """
@@ -56,7 +58,7 @@ class ExtractionContextPreparer:
         self.logger.info("No example provided, auto-generating...")
         return await self._auto_generate_example(client_provider)
 
-    def _serialize_example_object(self, obj: Union[SQLModel, List[SQLModel]]) -> str:
+    def _serialize_example_object(self, obj: SQLModel | list[SQLModel]) -> str:
         """Serializes SQLModel object(s) to JSON."""
         objects = obj if isinstance(obj, list) else [obj]
         serialized = []

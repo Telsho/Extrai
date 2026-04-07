@@ -1,15 +1,15 @@
 import keyword
-from typing import Any, Dict, Set, List
+from typing import Any
 
 
 class ImportManager:
     """Manages imports for the generated code, handling consolidation."""
 
     def __init__(self):
-        self.typing_imports: Set[str] = set()
-        self.sqlmodel_imports: Set[str] = {"SQLModel"}
-        self.module_imports: Set[str] = set()
-        self.custom_imports: Set[str] = set()
+        self.typing_imports: set[str] = set()
+        self.sqlmodel_imports: set[str] = {"SQLModel"}
+        self.module_imports: set[str] = set()
+        self.custom_imports: set[str] = set()
 
     def add_import_for_type(self, type_str: str):
         if "datetime." in type_str:
@@ -27,7 +27,7 @@ class ImportManager:
         if "Any" in type_str:
             self.typing_imports.add("Any")
 
-    def add_custom_imports(self, imports: List[str]):
+    def add_custom_imports(self, imports: list[str]):
         for imp in imports:
             self.custom_imports.add(imp.strip())
 
@@ -85,12 +85,12 @@ class ImportManager:
 class FieldGenerator:
     """Generates the code for a single field in a SQLModel."""
 
-    def __init__(self, field_info: Dict[str, Any], import_manager: ImportManager):
+    def __init__(self, field_info: dict[str, Any], import_manager: ImportManager):
         self.field_info = field_info
         self.imports = import_manager
         self.field_name_original = self.field_info["name"]
         self.field_name_python = self.field_name_original
-        self.args_map: Dict[str, str] = {}
+        self.args_map: dict[str, str] = {}
 
     def _handle_keyword_name(self):
         if keyword.iskeyword(self.field_name_original):
@@ -231,7 +231,7 @@ class ClassCodeBuilder:
         import_manager: ImportManager,
         description: str,
         table_name: str,
-        base_classes: List[str],
+        base_classes: list[str],
         is_table_model: bool,
     ):
         self.model_name = model_name
@@ -240,7 +240,7 @@ class ClassCodeBuilder:
         self.table_name = table_name
         self.base_classes = base_classes
         self.is_table_model = is_table_model
-        self.fields_code: List[str] = []
+        self.fields_code: list[str] = []
 
     def add_field(self, field_code: str):
         self.fields_code.append(field_code)
@@ -274,7 +274,7 @@ class ClassCodeBuilder:
 class PythonModelBuilder:
     """Facade for generating Python code for SQLModels from description dictionaries."""
 
-    def generate_model_code(self, model_descriptions: List[Dict[str, Any]]) -> str:
+    def generate_model_code(self, model_descriptions: list[dict[str, Any]]) -> str:
         """
         Generates Python code for the provided model descriptions.
 

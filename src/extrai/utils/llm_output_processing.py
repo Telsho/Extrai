@@ -1,10 +1,10 @@
 import json
-from typing import Any, Dict, Type, Optional, Union, Tuple
+from typing import Any
+
+from pydantic import ValidationError as PydanticValidationError
+from sqlmodel import SQLModel
 
 from extrai.core.analytics_collector import WorkflowAnalyticsCollector
-from sqlmodel import SQLModel
-from pydantic import ValidationError as PydanticValidationError
-
 from extrai.core.errors import (
     LLMOutputParseError,
     LLMOutputValidationError,
@@ -12,7 +12,7 @@ from extrai.core.errors import (
 from extrai.utils.json_validation_utils import is_json_valid
 
 
-def _filter_special_fields_for_validation(data: Dict[str, Any]) -> Dict[str, Any]:
+def _filter_special_fields_for_validation(data: dict[str, Any]) -> dict[str, Any]:
     """
     Removes fields that are part of an extended schema (e.g., for relationship handling
     or temporary IDs) but not part of the core SQLModel definition for validation.
@@ -31,7 +31,7 @@ def _filter_special_fields_for_validation(data: Dict[str, Any]) -> Dict[str, Any
     }
 
 
-def _unwrap_priority_keys(data: Any) -> Tuple[Any, bool]:
+def _unwrap_priority_keys(data: Any) -> tuple[Any, bool]:
     """
     Recursively unwraps priority keys (result, data, etc.) from a dictionary.
     Returns a tuple (unwrapped_data, was_unwrapped).
@@ -82,12 +82,12 @@ def _unwrap_llm_output(data: Any) -> Any:
 
 
 def process_and_validate_llm_output(
-    raw_llm_content: Optional[str],
-    model_schema_map: Dict[str, Type[SQLModel]],
+    raw_llm_content: str | None,
+    model_schema_map: dict[str, type[SQLModel]],
     revision_info_for_error: str = "LLM Output",
-    analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
-    default_model_type: Optional[str] = None,
-) -> list[Dict[str, Any]]:
+    analytics_collector: WorkflowAnalyticsCollector | None = None,
+    default_model_type: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Parses raw LLM JSON content, unwraps structures, and validates a list of objects
     against a map of SQLModel schemas.
@@ -171,9 +171,9 @@ def process_and_validate_llm_output(
 def process_and_validate_raw_json(
     raw_llm_content: str,
     revision_info_for_error: str,
-    target_json_schema: Optional[Dict[str, Any]] = None,
+    target_json_schema: dict[str, Any] | None = None,
     attempt_unwrap: bool = True,
-) -> Union[Dict[str, Any], list[Dict[str, Any]]]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
     Parses, unwraps, and validates raw JSON content against a schema.
 

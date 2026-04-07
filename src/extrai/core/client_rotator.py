@@ -1,4 +1,3 @@
-from typing import List, Union
 from .base_llm_client import BaseLLMClient
 
 
@@ -7,7 +6,7 @@ class ClientRotator:
     Manages rotation through a list of LLM clients.
     """
 
-    def __init__(self, clients: Union[BaseLLMClient, List[BaseLLMClient]]):
+    def __init__(self, clients: BaseLLMClient | list[BaseLLMClient]):
         self.clients = clients if isinstance(clients, list) else [clients]
         if not self.clients:
             raise ValueError("At least one client must be provided")

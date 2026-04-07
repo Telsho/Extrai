@@ -7,7 +7,6 @@ from sqlmodel import SQLModel, create_engine, Session as SQLModelSession
 
 from extrai.core.workflow_orchestrator import WorkflowOrchestrator
 
-
 from tests.core.helpers.orchestrator_test_models import DepartmentModel, EmployeeModel
 from tests.core.helpers.mock_llm_clients import (
     MockLLMClientForWorkflow as MockLLMClient,
@@ -71,28 +70,16 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         self.mock_llm_client1.set_revisions_to_return([llm_output_to_unwrap])
         self.mock_llm_client2.set_revisions_to_return([llm_output_to_unwrap])
 
-        from extrai.utils.flattening_utils import flatten_json
-
-        example_flat_revision = flatten_json(revision_content)
-        num_unique_paths = len(example_flat_revision)
-
         mock_consensus_output = revision_content
-        mock_analytics_for_clear_consensus = {
-            "revisions_processed": 2,
-            "unique_paths_considered": num_unique_paths,
-            "paths_agreed_by_threshold": num_unique_paths,
-            "paths_resolved_by_conflict_resolver": 0,
-            "paths_omitted_due_to_no_consensus_or_resolver_omission": 0,
-        }
         expected_consensus_input = [revision_content] * 2
 
         with mock.patch.object(
-            self.orchestrator.pipeline.llm_runner.consensus,
-            "get_consensus",
-            return_value=(mock_consensus_output, mock_analytics_for_clear_consensus),
-        ) as mock_get_consensus_call:
+            self.orchestrator.pipeline.llm_runner.consensus_runner,
+            "run",
+            return_value=mock_consensus_output,
+        ) as mock_run_call:
             await self.orchestrator.synthesize(["input"], self.db_session)
-            mock_get_consensus_call.assert_called_once_with(expected_consensus_input)
+            mock_run_call.assert_called_once_with(expected_consensus_input)
 
         self.assertEqual(self.mock_llm_client1.call_count, 1)
         self.assertEqual(self.mock_llm_client2.call_count, 1)

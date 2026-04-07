@@ -1,19 +1,19 @@
 import logging
-from typing import List, Dict, Any, Optional, NamedTuple
+from typing import Any, NamedTuple
 
-from extrai.core.model_registry import ModelRegistry
-from extrai.core.prompt_builder import PromptBuilder
-from extrai.core.model_wrapper_builder import ModelWrapperBuilder
 from extrai.core.extraction_config import ExtractionConfig
+from extrai.core.model_registry import ModelRegistry
+from extrai.core.model_wrapper_builder import ModelWrapperBuilder
+from extrai.core.prompt_builder import PromptBuilder
 from extrai.utils.serialization_utils import make_json_serializable
 
 
 class ExtractionRequest(NamedTuple):
     system_prompt: str
     user_prompt: str
-    json_schema: Optional[Dict[str, Any]]
-    model_name: Optional[str]
-    response_model: Optional[Any] = None
+    json_schema: dict[str, Any] | None
+    model_name: str | None
+    response_model: Any | None = None
 
 
 class ExtractionRequestFactory:
@@ -27,7 +27,7 @@ class ExtractionRequestFactory:
         model_registry: ModelRegistry,
         prompt_builder: PromptBuilder,
         model_wrapper_builder: ModelWrapperBuilder,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         self.model_registry = model_registry
         self.prompt_builder = prompt_builder
@@ -36,16 +36,16 @@ class ExtractionRequestFactory:
 
     def prepare_request(
         self,
-        input_strings: List[str],
+        input_strings: list[str],
         config: ExtractionConfig,
         extraction_example_json: str = "",
         custom_extraction_process: str = "",
         custom_extraction_guidelines: str = "",
         custom_final_checklist: str = "",
         custom_context: str = "",
-        expected_entity_descriptions: Optional[List[str]] = None,
-        previous_entities: Optional[List[Dict[str, Any]]] = None,
-        hierarchical_model_index: Optional[int] = None,
+        expected_entity_descriptions: list[dict] | None = None,
+        previous_entities: list[dict[str, Any]] | None = None,
+        hierarchical_model_index: int | None = None,
     ) -> ExtractionRequest:
         """
         Prepares the extraction request based on the configuration and current state.

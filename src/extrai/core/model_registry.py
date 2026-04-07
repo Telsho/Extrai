@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Type, List, Optional
+
 from sqlmodel import SQLModel
 
 from .errors import ConfigurationError
@@ -21,7 +21,7 @@ class ModelRegistry:
     """
 
     def __init__(
-        self, root_model: Type[SQLModel], logger: Optional[logging.Logger] = None
+        self, root_model: type[SQLModel], logger: logging.Logger | None = None
     ):
         """
         Initialize the model registry.
@@ -56,7 +56,7 @@ class ModelRegistry:
             f"{', '.join(self.model_map.keys())}"
         )
 
-    def _discover_models(self, root_model: Type[SQLModel]) -> List[Type[SQLModel]]:
+    def _discover_models(self, root_model: type[SQLModel]) -> list[type[SQLModel]]:
         """
         Discovers all SQLModel classes from root.
 
@@ -106,7 +106,7 @@ class ModelRegistry:
         except Exception as e:
             raise ConfigurationError(f"Failed to generate LLM schema: {e}") from e
 
-    def get_schema_for_models(self, model_names: List[str]) -> str:
+    def get_schema_for_models(self, model_names: list[str]) -> str:
         """
         Generates schema JSON for specific models.
 
@@ -135,7 +135,7 @@ class ModelRegistry:
             self.logger.error(f"Failed to generate schema for {model_names}: {e}")
             return self.llm_schema_json
 
-    def get_model_by_name(self, name: str) -> Optional[Type[SQLModel]]:
+    def get_model_by_name(self, name: str) -> type[SQLModel] | None:
         """
         Retrieves a model class by name.
 
@@ -147,7 +147,7 @@ class ModelRegistry:
         """
         return self.model_map.get(name)
 
-    def get_all_model_names(self) -> List[str]:
+    def get_all_model_names(self) -> list[str]:
         """
         Returns list of all discovered model names.
 

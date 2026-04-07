@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+
 from .generic_openai_client import GenericOpenAIClient
 
 
@@ -13,8 +13,8 @@ class HuggingFaceClient(GenericOpenAIClient):
         api_key: str,
         model_name: str = "mistralai/Mistral-7B-Instruct-v0.1",
         base_url: str = "https://api-inference.huggingface.co/v1/",
-        temperature: Optional[float] = 0.3,
-        logger: Optional[logging.Logger] = None,
+        temperature: float | None = 0.3,
+        logger: logging.Logger | None = None,
     ):
         """
         Initializes the HuggingFaceClient.

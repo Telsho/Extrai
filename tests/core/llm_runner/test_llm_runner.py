@@ -46,17 +46,14 @@ class TestLLMRunner(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(c2, self.mock_client2)
         self.assertEqual(c3, self.mock_client1)
 
-    @patch("extrai.core.llm_runner.normalize_json_revisions")
-    async def test_run_extraction_cycle_success(self, mock_normalize):
+    async def test_run_extraction_cycle_success(self):
         # Setup mocks
         self.mock_client1.generate_json_revisions = AsyncMock(return_value=[{"id": 1}])
         self.mock_client2.generate_json_revisions = AsyncMock(return_value=[{"id": 1}])
 
-        mock_normalize.return_value = [{"id": 1}, {"id": 1}]
-
         # Mock consensus
-        with patch.object(self.runner, "consensus") as mock_consensus:
-            mock_consensus.get_consensus.return_value = ([{"id": 1}], {})
+        with patch.object(self.runner, "consensus_runner") as mock_consensus_runner:
+            mock_consensus_runner.run.return_value = [{"id": 1}]
 
             results = await self.runner.run_extraction_cycle("sys", "user")
 
@@ -66,8 +63,7 @@ class TestLLMRunner(unittest.IsolatedAsyncioTestCase):
             # Verify calls
             self.assertEqual(self.mock_client1.generate_json_revisions.call_count, 1)
             self.assertEqual(self.mock_client2.generate_json_revisions.call_count, 1)
-            mock_normalize.assert_called_once()
-            mock_consensus.get_consensus.assert_called_once()
+            mock_consensus_runner.run.assert_called_once()
 
     async def test_run_extraction_cycle_llm_failure(self):
         self.mock_client1.generate_json_revisions = AsyncMock(
@@ -80,23 +76,6 @@ class TestLLMRunner(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(LLMInteractionError):
             await self.runner.run_extraction_cycle("sys", "user")
-
-    def test_process_consensus_output(self):
-        # List
-        res = self.runner._process_consensus_output([{"a": 1}])
-        self.assertEqual(res, [{"a": 1}])
-
-        # None
-        res = self.runner._process_consensus_output(None)
-        self.assertEqual(res, [])
-
-        # Dict
-        res = self.runner._process_consensus_output({"a": 1})
-        self.assertEqual(res, [{"a": 1}])
-
-        # Dict with results
-        res = self.runner._process_consensus_output({"results": [{"a": 1}]})
-        self.assertEqual(res, [{"a": 1}])
 
     def test_get_client_count(self):
         self.assertEqual(self.runner.get_client_count(), 2)

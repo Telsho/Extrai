@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 
 def generate_structured_system_prompt(
@@ -7,9 +7,9 @@ def generate_structured_system_prompt(
     custom_extraction_guidelines: str = "",
     custom_context: str = "",
     extraction_example_json: str = "",
-    expected_entity_descriptions: Optional[List[str]] = None,
-    previous_entities: Optional[List[Dict[str, Any]]] = None,
-    target_model_name: Optional[str] = None,
+    expected_entity_descriptions: list[dict] | None = None,
+    previous_entities: list[dict[str, Any]] | None = None,
+    target_model_name: str | None = None,
 ) -> str:
     """
     Generates a system prompt tailored for structured output extraction.
@@ -37,6 +37,7 @@ You are an expert data extraction AI. Your goal is to extract structured data fr
 3.  **Accuracy:** Ensure all extracted data is accurate and supported by the text.
 4.  **Inference:** If a field is missing but can be reasonably inferred from context, you may do so. Otherwise, leave it as null/None.
 5.  **Relationships:** Capture relationships by nesting entities as defined in the structure.
+6.  **IDs:** If the schema contains an `id` field, you MUST populate it. If the `id` is an integer, start counting from 1. If it is a string, create a deterministic ID based on the content.
 """
 
     parts = [default_instructions]
@@ -48,16 +49,29 @@ You are an expert data extraction AI. Your goal is to extract structured data fr
             "Do not extract other entity types in this step."
         )
 
-    if expected_entity_descriptions:
+    if expected_entity_descriptions is not None:
         parts.append("# EXPECTED ENTITIES & ORDER")
-        parts.append(
-            "You MUST extract entities matching the following descriptions, in this exact order:"
-        )
-        for i, desc in enumerate(expected_entity_descriptions, 1):
-            parts.append(f"{i}. {desc}")
-        parts.append(
-            f"\nYou must extract EXACTLY {len(expected_entity_descriptions)} items/entities corresponding to these descriptions."
-        )
+        if len(expected_entity_descriptions) == 0:
+            parts.append(
+                "Based on the counting phase, there are NO entities of this type to extract. "
+                "You MUST return an empty array/list. Extract exactly 0 entities."
+            )
+        else:
+            parts.append(
+                "You MUST extract entities matching the following descriptions, in this exact order:"
+            )
+            for i, entity_dict in enumerate(expected_entity_descriptions, 1):
+                model = entity_dict.get("model", "Unknown")
+                desc = entity_dict.get("description", "")
+                related_ids = entity_dict.get("related_ids", [])
+                related_str = (
+                    f" | Related IDs: {', '.join(related_ids)}" if related_ids else ""
+                )
+                parts.append(f"{i}. [Model: {model}] Description: {desc}{related_str}")
+
+            parts.append(
+                f"\nYou must extract EXACTLY {len(expected_entity_descriptions)} items/entities corresponding to these descriptions."
+            )
 
     # Assemble comprehensive custom instructions
     instructions_parts = []

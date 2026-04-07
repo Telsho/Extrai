@@ -1,19 +1,22 @@
 import logging
-from typing import List, Dict, Any, Optional, Union
+from typing import Any, Union
+
 from sqlmodel import SQLModel
 
 from extrai.core.base_llm_client import BaseLLMClient
-from .client_rotator import ClientRotator
-from .extraction_context_preparer import ExtractionContextPreparer
-from .model_registry import ModelRegistry
-from .extraction_config import ExtractionConfig
-from .prompt_builder import PromptBuilder
-from .entity_counter import EntityCounter
-from .llm_runner import LLMRunner
-from .hierarchical_extractor import HierarchicalExtractor
+from extrai.utils.serialization_utils import resolve_step_param
+
 from .analytics_collector import WorkflowAnalyticsCollector
-from .model_wrapper_builder import ModelWrapperBuilder
+from .client_rotator import ClientRotator
+from .entity_counter import EntityCounter
+from .extraction_config import ExtractionConfig
+from .extraction_context_preparer import ExtractionContextPreparer
 from .extraction_request_factory import ExtractionRequestFactory
+from .hierarchical_extractor import HierarchicalExtractor
+from .llm_runner import LLMRunner
+from .model_registry import ModelRegistry
+from .model_wrapper_builder import ModelWrapperBuilder
+from .prompt_builder import PromptBuilder
 
 
 class ExtractionPipeline:
@@ -33,11 +36,11 @@ class ExtractionPipeline:
     def __init__(
         self,
         model_registry: ModelRegistry,
-        llm_client: Union["BaseLLMClient", List["BaseLLMClient"]],
+        llm_client: Union["BaseLLMClient", list["BaseLLMClient"]],
         config: ExtractionConfig,
         analytics_collector: WorkflowAnalyticsCollector,
         logger: logging.Logger,
-        counting_llm_client: Optional[BaseLLMClient] = None,
+        counting_llm_client: BaseLLMClient | None = None,
     ):
         """
         Initialize the extraction pipeline.
@@ -102,16 +105,16 @@ class ExtractionPipeline:
 
     async def extract(
         self,
-        input_strings: List[str],
+        input_strings: list[str],
         extraction_example_json: str = "",
-        extraction_example_object: Optional[Union[SQLModel, List[SQLModel]]] = None,
-        custom_extraction_process: str = "",
-        custom_extraction_guidelines: str = "",
-        custom_final_checklist: str = "",
-        custom_context: str = "",
+        extraction_example_object: SQLModel | list[SQLModel] | None = None,
+        custom_extraction_process: str | list[str] = "",
+        custom_extraction_guidelines: str | list[str] = "",
+        custom_final_checklist: str | list[str] = "",
+        custom_context: str | list[str] = "",
         count_entities: bool = False,
-        custom_counting_context: str = "",
-    ) -> List[Dict[str, Any]]:
+        custom_counting_context: str | list[str] = "",
+    ) -> list[dict[str, Any]]:
         """
         Executes extraction and returns consensus JSON.
 
@@ -145,12 +148,24 @@ class ExtractionPipeline:
         # Step 2: Count entities if requested
         # Note: For hierarchical extraction, counting is handled per-model within the extractor
         expected_entity_descriptions = None
+        skip_extraction = False
         if count_entities and not self.config.use_hierarchical_extraction:
             expected_entity_descriptions = await self._count_entities(
-                input_strings, custom_counting_context
+                input_strings, custom_counting_context, examples=example_json
             )
             if expected_entity_descriptions is not None:
                 self.logger.info(f"Entity count: {len(expected_entity_descriptions)}")
+                # Check if descriptions are empty - if so, skip extraction
+                if len(expected_entity_descriptions) == 0:
+                    self.logger.info(
+                        "Skipping extraction - no entity descriptions found from counting"
+                    )
+                    skip_extraction = True
+            else:
+                # Counting failed, but we'll continue with extraction without descriptions
+                self.logger.warning(
+                    "Entity counting failed or returned None, proceeding with extraction without descriptions"
+                )
 
         # Step 3: Run extraction (hierarchical or standard)
         if self.config.use_hierarchical_extraction:
@@ -186,60 +201,77 @@ class ExtractionPipeline:
                 f"Using {'structured' if self.config.use_structured_output else 'standard'} extraction mode"
             )
 
-            request = self.request_factory.prepare_request(
-                input_strings=input_strings,
-                config=self.config,
-                extraction_example_json=example_json,
-                custom_extraction_process=custom_extraction_process,
-                custom_extraction_guidelines=custom_extraction_guidelines,
-                custom_final_checklist=custom_final_checklist,
-                custom_context=custom_context,
-                expected_entity_descriptions=expected_entity_descriptions,
-            )
-
-            self.logger.debug(
-                f"System prompt length: {len(request.system_prompt)} chars"
-            )
-            self.logger.debug(f"User prompt length: {len(request.user_prompt)} chars")
-
-            if request.response_model:
-                results = await self.llm_runner.run_structured_extraction_cycle(
-                    system_prompt=request.system_prompt,
-                    user_prompt=request.user_prompt,
-                    response_model=request.response_model,
+            # Check if we should skip extraction due to empty descriptions from counting
+            if skip_extraction:
+                self.logger.info(
+                    "Skipping extraction - no entity descriptions found from counting"
                 )
+                results = []
             else:
-                results = await self.llm_runner.run_extraction_cycle(
-                    system_prompt=request.system_prompt, user_prompt=request.user_prompt
+                request = self.request_factory.prepare_request(
+                    input_strings=input_strings,
+                    config=self.config,
+                    extraction_example_json=example_json,
+                    custom_extraction_process=resolve_step_param(
+                        custom_extraction_process
+                    ),
+                    custom_extraction_guidelines=resolve_step_param(
+                        custom_extraction_guidelines
+                    ),
+                    custom_final_checklist=resolve_step_param(custom_final_checklist),
+                    custom_context=resolve_step_param(custom_context),
+                    expected_entity_descriptions=expected_entity_descriptions,
                 )
+
+                self.logger.debug(
+                    f"System prompt length: {len(request.system_prompt)} chars"
+                )
+                self.logger.debug(
+                    f"User prompt length: {len(request.user_prompt)} chars"
+                )
+
+                if request.response_model:
+                    results = await self.llm_runner.run_structured_extraction_cycle(
+                        system_prompt=request.system_prompt,
+                        user_prompt=request.user_prompt,
+                        response_model=request.response_model,
+                    )
+                else:
+                    results = await self.llm_runner.run_extraction_cycle(
+                        system_prompt=request.system_prompt,
+                        user_prompt=request.user_prompt,
+                    )
 
         self.logger.info(f"Extraction completed. Found {len(results)} entities.")
         return results
 
     async def _count_entities(
-        self, input_strings: List[str], custom_counting_context: str = ""
-    ) -> Optional[List[str]]:
+        self,
+        input_strings: list[str],
+        custom_counting_context: str | list[str] = "",
+        examples: str = "",
+    ) -> list[dict] | None:
         """
         Counts entities in the input documents.
 
         Args:
             input_strings: Documents to analyze
             custom_counting_context: Custom context for counting phase
+            examples: Optional examples to guide the counting phase
 
         Returns:
-            List of descriptions of all model entities, or None if counting fails
+            List of descriptions (dicts) of all model entities, or None if counting fails
         """
         all_model_names = self.model_registry.get_all_model_names()
 
         try:
             counts = await self.entity_counter.count_entities(
-                input_strings, all_model_names, custom_counting_context
+                input_strings,
+                all_model_names,
+                resolve_step_param(custom_counting_context),
+                examples=examples,
             )
-            flat_descriptions = []
-            for model_name, descriptions in counts.items():
-                for desc in descriptions:
-                    flat_descriptions.append(f"[{model_name}] {desc}")
-            return flat_descriptions
+            return counts
         except Exception as e:
             self.logger.warning(f"Entity counting failed: {e}")
             return None

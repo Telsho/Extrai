@@ -1,84 +1,51 @@
 # extrai/core/llm_runner.py
 
-import logging
 import asyncio
-from typing import List, Dict, Any, Union
+import logging
+from typing import Any
 
-from .model_registry import ModelRegistry
-from .extraction_config import ExtractionConfig
-from .json_consensus import JSONConsensus, default_conflict_resolver
 from .analytics_collector import WorkflowAnalyticsCollector
-from .base_llm_client import BaseLLMClient
+from .base_llm_client import BaseLLMClient, ResponseMode
 from .errors import (
-    LLMInteractionError,
-    ConsensusProcessError,
+    LLMAPICallError,
     LLMConfigurationError,
+    LLMInteractionError,
     LLMOutputParseError,
     LLMOutputValidationError,
-    LLMAPICallError,
 )
-from extrai.utils.alignment_utils import normalize_json_revisions
+from .extraction_config import ExtractionConfig
+from .model_registry import ModelRegistry
+from .shared.consensus_runner import ConsensusRunner
 
 
 class LLMRunner:
     """
     Manages LLM client rotation and extraction cycles.
-
-    Responsibilities:
-    - Rotate through multiple LLM clients for load balancing
-    - Execute parallel LLM calls for multiple revisions
-    - Run consensus mechanism on results
-    - Handle LLM-related errors gracefully
-
-    This class abstracts away the complexity of managing multiple LLM
-    clients and coordinating their outputs through consensus.
     """
 
     def __init__(
         self,
         model_registry: ModelRegistry,
-        llm_client: Union[BaseLLMClient, List[BaseLLMClient]],
+        llm_client: BaseLLMClient | list[BaseLLMClient],
         config: ExtractionConfig,
         analytics_collector: WorkflowAnalyticsCollector,
         logger: logging.Logger,
     ):
-        """
-        Initialize the LLM runner.
-
-        Args:
-            model_registry: Registry of SQLModel schemas
-            llm_client: Single client or list of LLM clients
-            config: Extraction configuration
-            analytics_collector: Collector for tracking metrics
-            logger: Logger instance
-
-        Raises:
-            ValueError: If llm_client list is empty or contains invalid clients
-        """
         self.model_registry = model_registry
         self.config = config
         self.analytics_collector = analytics_collector
         self.logger = logger
-
-        # Setup clients with validation
         self.clients = self._setup_clients(llm_client)
         self.client_index = 0
-
-        # Setup consensus mechanism
-        self.consensus = JSONConsensus(
-            consensus_threshold=config.consensus_threshold,
-            conflict_resolver=config.conflict_resolver or default_conflict_resolver,
-            logger=logger,
-        )
-
+        self.consensus_runner = ConsensusRunner(config, analytics_collector, logger)
         self.logger.info(
             f"LLMRunner initialized with {len(self.clients)} client(s), "
             f"{config.num_llm_revisions} revisions per cycle"
         )
 
     def _setup_clients(
-        self, llm_client: Union[BaseLLMClient, List[BaseLLMClient]]
-    ) -> List[BaseLLMClient]:
+        self, llm_client: BaseLLMClient | list[BaseLLMClient]
+    ) -> list[BaseLLMClient]:
         """
         Validates and normalizes LLM client input.
 
@@ -129,7 +96,7 @@ class LLMRunner:
 
     async def run_extraction_cycle(
         self, system_prompt: str, user_prompt: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Runs a complete extraction cycle.
 
@@ -157,15 +124,10 @@ class LLMRunner:
         # Step 1: Generate revisions in parallel
         revisions = await self._generate_revisions(system_prompt, user_prompt)
 
-        self.logger.debug(f"Generated {len(revisions)} revisions before normalization")
-
-        # Step 2: Normalize for consensus (handles array ordering)
-        revisions = normalize_json_revisions(revisions)
-
-        self.logger.debug(f"Normalized to {len(revisions)} revisions for consensus")
+        self.logger.debug(f"Generated {len(revisions)} revisions before consensus")
 
         # Step 3: Run consensus
-        results = self._run_consensus(revisions)
+        results = self.consensus_runner.run(revisions)
 
         self.logger.info(f"Extraction cycle completed with {len(results)} entities")
 
@@ -176,7 +138,7 @@ class LLMRunner:
         system_prompt: str,
         user_prompt: str,
         response_model: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Runs a structured extraction cycle using response_model directly.
         """
@@ -184,18 +146,21 @@ class LLMRunner:
             f"Starting structured extraction cycle with {self.config.num_llm_revisions} revisions"
         )
 
+        async def generate_single_revision(client_instance: BaseLLMClient) -> Any:
+            """Helper to generate a single revision and extract the result."""
+            results = await client_instance.generate_revisions(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                num_revisions=1,
+                response_mode=ResponseMode.STRUCTURED,
+                response_model=response_model,
+            )
+            return results[0]
+
         tasks = []
         for i in range(self.config.num_llm_revisions):
             client = self.get_next_client()
-            tasks.append(
-                asyncio.create_task(
-                    client.generate_structured(
-                        system_prompt=system_prompt,
-                        user_prompt=user_prompt,
-                        response_model=response_model,
-                    )
-                )
-            )
+            tasks.append(asyncio.create_task(generate_single_revision(client)))
 
         try:
             results = await asyncio.gather(*tasks)
@@ -214,24 +179,21 @@ class LLMRunner:
                 self.logger.warning(f"Result {type(result)} is not a Pydantic model.")
 
         # Extract the list of entities if present
-        normalized_revisions = []
+        processed_revisions = []
         for rev in revisions:
             if "entities" in rev and isinstance(rev["entities"], list):
-                normalized_revisions.append(rev["entities"])
+                processed_revisions.append(rev["entities"])
             else:
-                normalized_revisions.append(rev)
-
-        # Step 2: Normalize
-        normalized_revisions = normalize_json_revisions(normalized_revisions)
+                processed_revisions.append(rev)
 
         # Step 3: Consensus
-        final_results = self._run_consensus(normalized_revisions)
+        final_results = self.consensus_runner.run(processed_revisions)
 
         return final_results
 
     async def _generate_revisions(
         self, system_prompt: str, user_prompt: str
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Generates multiple LLM revisions in parallel.
 
@@ -301,93 +263,6 @@ class LLMRunner:
             raise LLMInteractionError(
                 f"An unexpected error occurred during LLM interaction: {e}"
             ) from e
-
-    def _run_consensus(self, revisions: List[Any]) -> List[Dict[str, Any]]:
-        """
-        Runs consensus mechanism on revisions.
-
-        Args:
-            revisions: List of normalized revision outputs
-
-        Returns:
-            List of consensus entity dictionaries
-
-        Raises:
-            ConsensusProcessError: If consensus fails
-        """
-        try:
-            self.logger.debug(f"Running consensus on {len(revisions)} revisions")
-
-            # Run consensus
-            consensus_output, details = self.consensus.get_consensus(revisions)
-
-            # Record analytics if available
-            if details:
-                self.analytics_collector.record_consensus_run_details(details)
-                self.logger.debug(f"Consensus details: {details}")
-
-            # Process and normalize output
-            processed = self._process_consensus_output(consensus_output)
-
-            self.logger.debug(f"Consensus produced {len(processed)} entities")
-
-            return processed
-
-        except ConsensusProcessError:
-            # Re-raise consensus errors as-is
-            raise
-
-        except Exception as e:
-            # Wrap unexpected errors
-            self.logger.error(f"Consensus processing failed: {e}")
-            raise ConsensusProcessError(
-                f"Failed during JSON consensus processing: {e}"
-            ) from e
-
-    def _process_consensus_output(self, consensus_output: Any) -> List[Dict[str, Any]]:
-        """
-        Normalizes consensus output to list format.
-
-        The consensus mechanism can return various formats:
-        - None (no consensus reached)
-        - List of dicts (standard format)
-        - Dict with 'results' key
-        - Single dict (wrap in list)
-
-        Args:
-            consensus_output: Raw output from consensus mechanism
-
-        Returns:
-            Normalized list of entity dictionaries
-
-        Raises:
-            ConsensusProcessError: If output format is unexpected
-        """
-        # Handle None
-        if consensus_output is None:
-            self.logger.warning("Consensus returned None, returning empty list")
-            return []
-
-        # Handle list (standard format)
-        if isinstance(consensus_output, list):
-            return consensus_output
-
-        # Handle dict
-        if isinstance(consensus_output, dict):
-            # Check for 'results' key (wrapped format)
-            if "results" in consensus_output and isinstance(
-                consensus_output["results"], list
-            ):
-                return consensus_output["results"]
-
-            # Single entity dict, wrap in list
-            return [consensus_output]
-
-        # Unexpected type
-        raise ConsensusProcessError(
-            f"Unexpected consensus output type: {type(consensus_output)}. "
-            f"Expected None, list, or dict."
-        )
 
     def get_client_count(self) -> int:
         """

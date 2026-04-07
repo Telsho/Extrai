@@ -1,7 +1,7 @@
 # extrai/core/extraction_config.py
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 
 @dataclass
@@ -9,9 +9,11 @@ class ExtractionConfig:
     """Configuration for extraction workflows."""
 
     num_llm_revisions: int = 3
+    num_counting_revisions: int = 3
     max_validation_retries_per_revision: int = 2
     consensus_threshold: float = 0.51
-    conflict_resolver: Optional[Callable] = None
+    counting_levenshtein_threshold: float = 0.85
+    conflict_resolver: Callable | None = None
     use_hierarchical_extraction: bool = False
     use_structured_output: bool = False
 

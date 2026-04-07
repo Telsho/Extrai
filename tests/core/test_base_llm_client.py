@@ -1,4 +1,5 @@
 import pytest
+from typing import Any, Optional, Type
 from unittest.mock import AsyncMock, patch, call, Mock  # Added Mock
 
 from sqlmodel import SQLModel
@@ -7,13 +8,14 @@ from extrai.core.analytics_collector import (
     WorkflowAnalyticsCollector,
 )  # Added for analytics
 
-from extrai.core.base_llm_client import BaseLLMClient
+from extrai.core.base_llm_client import BaseLLMClient, ResponseMode
 from extrai.core.errors import (
     LLMOutputParseError,
     LLMOutputValidationError,
     LLMAPICallError,
     LLMRevisionGenerationError,
 )
+from extrai.llm_providers.generic_openai_client import GenericOpenAIClient
 
 # --- Test Fixtures and Mocks ---
 
@@ -31,7 +33,15 @@ class MockLLMClient(BaseLLMClient):
 
     # We need to provide a concrete implementation for the abstract method,
     # even if it's going to be replaced by a mock in most tests.
-    async def _execute_llm_call(self, system_prompt: str, user_prompt: str) -> str:
+    async def _execute_llm_call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        response_mode: ResponseMode = ResponseMode.TEXT,
+        response_model: Optional[Type[Any]] = None,
+        analytics_collector: Optional[WorkflowAnalyticsCollector] = None,
+        **kwargs: Any,
+    ) -> Any:
         # This default implementation can be overridden by the mock object
         return "{}"
 
@@ -69,10 +79,10 @@ SAMPLE_TARGET_SCHEMA = {
 
 
 @pytest.mark.asyncio
-async def test_generate_all_revisions_orchestrator_logic(mock_client: MockLLMClient):
+async def test_generate_revisions_orchestrator_logic(mock_client: MockLLMClient):
     """
-    Tests the internal logic of the `_generate_all_revisions` orchestrator,
-    mocking the validation_callable to simulate different outcomes.
+    Tests the internal logic of the `generate_revisions` orchestrator,
+    mocking the validation_fn to simulate different outcomes.
     """
     valid_output = {"status": "success"}
     mock_client._execute_llm_call.side_effect = [
@@ -81,9 +91,9 @@ async def test_generate_all_revisions_orchestrator_logic(mock_client: MockLLMCli
         '{"status": "success"}',  # Attempt 3: Success
     ]
 
-    # A mock validation callable
-    validation_callable_mock = Mock()
-    validation_callable_mock.side_effect = [
+    # A mock validation function
+    validation_fn_mock = Mock()
+    validation_fn_mock.side_effect = [
         LLMOutputParseError(
             "Parse Error", "invalid_json"
         ),  # Corresponds to 2nd LLM call
@@ -91,24 +101,24 @@ async def test_generate_all_revisions_orchestrator_logic(mock_client: MockLLMCli
     ]
 
     with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-        results = await mock_client._generate_all_revisions(
+        results = await mock_client.generate_revisions(
             system_prompt="sys",
             user_prompt="user",
             num_revisions=1,
-            max_validation_retries_per_revision=3,
-            validation_callable=validation_callable_mock,
+            max_attempts_per_revision=3,
+            validation_fn=validation_fn_mock,
             analytics_collector=None,
         )
 
     assert len(results) == 1
     assert results[0] == valid_output
     assert mock_client._execute_llm_call.call_count == 3
-    assert validation_callable_mock.call_count == 2  # Not called on API error attempt
+    assert validation_fn_mock.call_count == 2  # Not called on API error attempt
     # Called for "invalid_json" and '{"status": "success"}'
-    validation_callable_mock.assert_has_calls(
+    validation_fn_mock.assert_has_calls(
         [
-            call("invalid_json", "Revision 1, Attempt 2"),
-            call('{"status": "success"}', "Revision 1, Attempt 3"),
+            call("invalid_json"),
+            call('{"status": "success"}'),
         ]
     )
     assert (
@@ -378,7 +388,7 @@ async def test_generate_json_revisions_unexpected_error_in_processing(
     with (
         patch(
             "extrai.core.base_llm_client.process_and_validate_llm_output",
-            side_effect=RuntimeError("Unexpected processing issue"),
+            side_effect=ValueError("Unexpected processing issue"),
         ) as mock_validate,
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
@@ -491,6 +501,57 @@ async def test_generate_zero_revisions(mock_client: MockLLMClient):
 
 
 @pytest.mark.asyncio
+async def test_generate_json_revisions_with_cost_calculation(
+    mock_analytics_collector: Mock,
+):
+    """Tests that cost is calculated and recorded correctly."""
+    # Mock the response from the OpenAI client
+    mock_message = Mock()
+    mock_message.content = '{"_type": "MockOutputModel", "name": "Test", "value": 123}'
+    mock_choice = Mock()
+    mock_choice.message = mock_message
+    mock_completion = Mock()
+    mock_completion.usage.prompt_tokens = 1000
+    mock_completion.usage.completion_tokens = 2000
+    mock_completion.choices = [mock_choice]
+
+    with (
+        patch(
+            "extrai.llm_providers.generic_openai_client.openai.AsyncOpenAI"
+        ) as mock_openai,
+        patch(
+            "extrai.core.base_llm_client.process_and_validate_llm_output",
+            return_value=[{"_type": "MockOutputModel", "name": "Test", "value": 123}],
+        ),
+        patch(
+            "extrai.llm_providers.generic_openai_client.calculate_cost",
+            return_value=0.07,
+        ),
+    ):
+        mock_openai.return_value.chat.completions.create = AsyncMock(
+            return_value=mock_completion
+        )
+        client = GenericOpenAIClient(
+            api_key="test_key",
+            model_name="gpt-4-turbo",
+            base_url="http://localhost:8080",
+        )
+
+        await client.generate_json_revisions(
+            system_prompt="sys",
+            user_prompt="user",
+            num_revisions=1,
+            model_schema_map={"MockOutputModel": MockOutputModelWithType},
+            analytics_collector=mock_analytics_collector,
+        )
+
+    mock_analytics_collector.record_llm_usage.assert_called_once()
+    args, kwargs = mock_analytics_collector.record_llm_usage.call_args
+    assert "cost" in kwargs
+    assert kwargs["cost"] is not None
+
+
+@pytest.mark.asyncio
 async def test_api_call_error_sleep_multiplier(mock_client: MockLLMClient):
     """
     Tests that asyncio.sleep is called with a potentially different delay for LLMAPICallError.
@@ -571,21 +632,19 @@ def test_subclass_must_implement_execute_llm_call():
 
 
 @pytest.mark.asyncio
-async def test_generate_one_revision_with_zero_attempts_raises_runtime_error(
+async def test_generate_single_revision_with_zero_attempts_raises_runtime_error(
     mock_client: MockLLMClient,
 ):
     """
     Tests that a RuntimeError is raised if the retry loop finishes without an error,
     which should only happen if max_attempts is 0.
     """
-    with pytest.raises(
-        RuntimeError, match="Revision generation failed without a recorded error."
-    ):
-        await mock_client._generate_one_revision_with_retries(
+    with pytest.raises(RuntimeError, match="Generation failed without recorded error"):
+        await mock_client._generate_single_revision(
             system_prompt="sys",
             user_prompt="user",
             max_attempts=0,  # Set max_attempts to 0 to prevent loop from running
-            validation_callable=Mock(),
+            validation_fn=Mock(),
             analytics_collector=None,
             revision_index=0,
         )
@@ -623,7 +682,7 @@ async def test_batch_methods_raise_not_implemented(mock_client: MockLLMClient):
         await mock_client.create_batch_job([])
 
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
-        await mock_client.retrieve_batch_job("id")
+        await mock_client.get_batch_status("id")
 
     with pytest.raises(NotImplementedError, match="Batch processing is not supported"):
         await mock_client.list_batch_jobs()
