@@ -47,15 +47,13 @@ class HierarchicalExtractor:
         self.config = config
         self.coordinator = HierarchicalCoordinator(model_registry, logger)
 
-    def _has_valid_descriptions(
-        self, descriptions: list[dict] | None
-    ) -> bool:
+    def _has_valid_descriptions(self, descriptions: list[dict] | None) -> bool:
         """
         Check if descriptions list is valid (not None and contains non-empty dicts).
-        
+
         Args:
             descriptions: List of description dicts from entity counting
-            
+
         Returns:
             True if descriptions exist and have at least one valid dict
         """
@@ -65,7 +63,7 @@ class HierarchicalExtractor:
             return False
         if len(descriptions) == 0:
             return False
-        
+
         for item in descriptions:
             if isinstance(item, dict) and "description" in item:
                 if item["description"] and item["description"].strip():
@@ -133,7 +131,7 @@ class HierarchicalExtractor:
                     previous_entities=previous_entities,
                     examples=extraction_example_json,
                 )
-                
+
                 # Filter counts just for this model
                 expected_entity_descriptions = [
                     item for item in counts if item.get("model") == model_name
@@ -197,7 +195,8 @@ class HierarchicalExtractor:
                     )
                 else:
                     entities = await self.llm_runner.run_extraction_cycle(
-                        system_prompt=request.system_prompt, user_prompt=request.user_prompt
+                        system_prompt=request.system_prompt,
+                        user_prompt=request.user_prompt,
                     )
 
             # Store results
@@ -216,4 +215,3 @@ class HierarchicalExtractor:
             )
 
         return list(results_store.values())
-

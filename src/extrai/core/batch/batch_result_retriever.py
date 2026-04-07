@@ -34,8 +34,12 @@ class BatchResultRetriever:
         # Determine the correct default model type based on current model index
         # This is critical for hierarchical extraction where we process models in order
         current_model_index = context.config.current_model_index
-        if context.config.hierarchical and 0 <= current_model_index < len(self.model_registry.models):
-            default_model_type = self.model_registry.models[current_model_index].__name__
+        if context.config.hierarchical and 0 <= current_model_index < len(
+            self.model_registry.models
+        ):
+            default_model_type = self.model_registry.models[
+                current_model_index
+            ].__name__
             self.logger.debug(
                 f"[BatchResultRetriever] Using hierarchical model type: {default_model_type}"
             )
@@ -48,9 +52,15 @@ class BatchResultRetriever:
         # Handle both string (JSONL) and list return types
         if isinstance(results_content, str):
             # Split by lines and filter empty lines
-            result_lines = [l.strip() for l in results_content.strip().split('\n') if l.strip()]
+            result_lines = [
+                l.strip() for l in results_content.strip().split("\n") if l.strip()
+            ]
         else:
-            result_lines = results_content if isinstance(results_content, list) else [results_content]
+            result_lines = (
+                results_content
+                if isinstance(results_content, list)
+                else [results_content]
+            )
 
         validated_results = []
         validation_errors = []
@@ -74,7 +84,9 @@ class BatchResultRetriever:
                                     context.current_batch_id,
                                 )
 
-                            extracted = client.extract_content_from_batch_response(parsed)
+                            extracted = client.extract_content_from_batch_response(
+                                parsed
+                            )
                             if extracted:
                                 raw_content = extracted
                         except NotImplementedError:

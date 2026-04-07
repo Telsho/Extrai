@@ -515,13 +515,18 @@ async def test_generate_json_revisions_with_cost_calculation(
     mock_completion.usage.completion_tokens = 2000
     mock_completion.choices = [mock_choice]
 
-    with patch(
-        "extrai.llm_providers.generic_openai_client.openai.AsyncOpenAI"
-    ) as mock_openai, patch(
-        "extrai.core.base_llm_client.process_and_validate_llm_output",
-        return_value=[{"_type": "MockOutputModel", "name": "Test", "value": 123}],
-    ), patch(
-        "extrai.llm_providers.generic_openai_client.calculate_cost", return_value=0.07
+    with (
+        patch(
+            "extrai.llm_providers.generic_openai_client.openai.AsyncOpenAI"
+        ) as mock_openai,
+        patch(
+            "extrai.core.base_llm_client.process_and_validate_llm_output",
+            return_value=[{"_type": "MockOutputModel", "name": "Test", "value": 123}],
+        ),
+        patch(
+            "extrai.llm_providers.generic_openai_client.calculate_cost",
+            return_value=0.07,
+        ),
     ):
         mock_openai.return_value.chat.completions.create = AsyncMock(
             return_value=mock_completion
@@ -634,9 +639,7 @@ async def test_generate_single_revision_with_zero_attempts_raises_runtime_error(
     Tests that a RuntimeError is raised if the retry loop finishes without an error,
     which should only happen if max_attempts is 0.
     """
-    with pytest.raises(
-        RuntimeError, match="Generation failed without recorded error"
-    ):
+    with pytest.raises(RuntimeError, match="Generation failed without recorded error"):
         await mock_client._generate_single_revision(
             system_prompt="sys",
             user_prompt="user",

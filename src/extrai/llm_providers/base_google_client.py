@@ -22,6 +22,7 @@ def _resolve_refs(s, root=None):
             if ref_path.startswith("#/$defs/"):
                 def_name = ref_path.split("/")[-1]
                 import copy
+
                 resolved_def = copy.deepcopy(root.get("$defs", {}).get(def_name, {}))
                 resolved_def = _resolve_refs(resolved_def, root)
                 new_schema = {}
@@ -137,9 +138,9 @@ class BaseGoogleGenAIClient(GenericOpenAIClient):
                     import pydantic
 
                     if hasattr(response_model, "model_json_schema"):
-                         schema = response_model.model_json_schema()
+                        schema = response_model.model_json_schema()
                     else:
-                         schema = pydantic.TypeAdapter(response_model).json_schema()
+                        schema = pydantic.TypeAdapter(response_model).json_schema()
 
                     schema = _resolve_refs(schema)
                     config["response_schema"] = schema
@@ -233,7 +234,9 @@ class BaseGoogleGenAIClient(GenericOpenAIClient):
                     usage = resp.response.usage_metadata
                     openai_resp["response"]["body"]["usage"] = {
                         "prompt_tokens": getattr(usage, "prompt_token_count", 0),
-                        "completion_tokens": getattr(usage, "candidates_token_count", 0),
+                        "completion_tokens": getattr(
+                            usage, "candidates_token_count", 0
+                        ),
                         "total_tokens": getattr(usage, "total_token_count", 0),
                     }
 
@@ -256,7 +259,12 @@ class BaseGoogleGenAIClient(GenericOpenAIClient):
 
         if state_name in ("JOB_STATE_SUCCEEDED", "SUCCEEDED"):
             return ProviderBatchStatus.COMPLETED
-        elif state_name in ("JOB_STATE_FAILED", "JOB_STATE_EXPIRED", "FAILED", "EXPIRED"):
+        elif state_name in (
+            "JOB_STATE_FAILED",
+            "JOB_STATE_EXPIRED",
+            "FAILED",
+            "EXPIRED",
+        ):
             return ProviderBatchStatus.FAILED
         elif state_name in ("JOB_STATE_PENDING", "PENDING"):
             return ProviderBatchStatus.PENDING

@@ -47,9 +47,7 @@ class BatchStatusChecker:
             else:
                 client = self.client_rotator.get_next_client()
 
-            provider_status = await client.get_batch_status(
-                context.current_batch_id
-            )
+            provider_status = await client.get_batch_status(context.current_batch_id)
 
             if provider_status == ProviderBatchStatus.COMPLETED:
                 if context.status in [

@@ -8,6 +8,7 @@ from .pricing_updater import load_pricing_data, update_prices_if_stale
 if typing.TYPE_CHECKING:
     from .base_llm_client import BaseLLMClient
 
+
 @dataclass
 class ModelCosts:
     """A simple dataclass to store cost per million tokens for a model."""
@@ -27,7 +28,9 @@ if pricing_data:
         MODEL_COSTS[item["id"]] = ModelCosts(
             input_cost_per_million=item["input"],
             output_cost_per_million=item["output"],
-            input_cached_cost_per_million=item["input_cached"] if item.get("input_cached") else None,
+            input_cached_cost_per_million=item["input_cached"]
+            if item.get("input_cached")
+            else None,
         )
 
 

@@ -212,7 +212,9 @@ class ExtractionPipeline:
                     input_strings=input_strings,
                     config=self.config,
                     extraction_example_json=example_json,
-                    custom_extraction_process=resolve_step_param(custom_extraction_process),
+                    custom_extraction_process=resolve_step_param(
+                        custom_extraction_process
+                    ),
                     custom_extraction_guidelines=resolve_step_param(
                         custom_extraction_guidelines
                     ),
@@ -224,7 +226,9 @@ class ExtractionPipeline:
                 self.logger.debug(
                     f"System prompt length: {len(request.system_prompt)} chars"
                 )
-                self.logger.debug(f"User prompt length: {len(request.user_prompt)} chars")
+                self.logger.debug(
+                    f"User prompt length: {len(request.user_prompt)} chars"
+                )
 
                 if request.response_model:
                     results = await self.llm_runner.run_structured_extraction_cycle(
@@ -234,7 +238,8 @@ class ExtractionPipeline:
                     )
                 else:
                     results = await self.llm_runner.run_extraction_cycle(
-                        system_prompt=request.system_prompt, user_prompt=request.user_prompt
+                        system_prompt=request.system_prompt,
+                        user_prompt=request.user_prompt,
                     )
 
         self.logger.info(f"Extraction completed. Found {len(results)} entities.")

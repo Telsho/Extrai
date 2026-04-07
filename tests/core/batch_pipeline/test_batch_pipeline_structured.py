@@ -42,7 +42,9 @@ class TestBatchPipelineStructured(unittest.IsolatedAsyncioTestCase):
         self.mock_logger = MagicMock()
 
         with (
-            patch("extrai.core.batch.batch_pipeline.ClientRotator") as MockClientRotator,
+            patch(
+                "extrai.core.batch.batch_pipeline.ClientRotator"
+            ) as MockClientRotator,
             patch(
                 "extrai.core.batch.batch_pipeline.ExtractionContextPreparer"
             ) as MockContextPreparer,
@@ -88,16 +90,21 @@ class TestBatchPipelineStructured(unittest.IsolatedAsyncioTestCase):
         mock_client.retrieve_batch_results = AsyncMock(
             return_value=[json.dumps(structured_response)]
         )
-        mock_client.extract_content_from_batch_response.side_effect = NotImplementedError
+        mock_client.extract_content_from_batch_response.side_effect = (
+            NotImplementedError
+        )
 
         # We expect this to fail because we haven't fixed the code yet,
         # and process_and_validate_llm_output will look for _type.
 
         # NOTE: process_and_validate_llm_output is imported in batch_result_retriever.
         # We allow the real implementation to run.
-        
+
         # Access retrieval logic via pipeline.retriever
-        results, validation_errors = await self.pipeline.retriever.retrieve_and_validate_results(
+        (
+            results,
+            validation_errors,
+        ) = await self.pipeline.retriever.retrieve_and_validate_results(
             mock_context, mock_client
         )
 

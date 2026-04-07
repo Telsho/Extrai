@@ -45,7 +45,7 @@ class CountingConsensus:
         """
         if not revisions:
             return []
-        
+
         if len(revisions) == 1:
             return revisions[0].get("counted_entities", [])
 
@@ -75,22 +75,30 @@ class CountingConsensus:
             for i in range(1, len(aligned_arrays)):
                 current_array = aligned_arrays[i]
                 sim_sum = 0.0
-                
+
                 for j in range(len(reference_array)):
                     sim = calculate_similarity(reference_array[j], current_array[j])
                     sim_sum += sim
 
-                avg_sim = sim_sum / len(reference_array) if len(reference_array) > 0 else 1.0
+                avg_sim = (
+                    sim_sum / len(reference_array) if len(reference_array) > 0 else 1.0
+                )
                 avg_similarities.append(avg_sim)
 
             # If the average similarity across all matched pairs exceeds a threshold, consensus reached.
             # We can pick the reference list since it's most similar.
-            overall_avg_sim = sum(avg_similarities) / len(avg_similarities) if avg_similarities else 1.0
-            
+            overall_avg_sim = (
+                sum(avg_similarities) / len(avg_similarities)
+                if avg_similarities
+                else 1.0
+            )
+
             if overall_avg_sim >= self.config.counting_levenshtein_threshold:
                 consensus_reached = True
                 best_list_idx = 0
-                self.logger.info(f"Counting consensus reached with average similarity {overall_avg_sim:.2f}")
+                self.logger.info(
+                    f"Counting consensus reached with average similarity {overall_avg_sim:.2f}"
+                )
 
         elif all_same_length and lengths[0] == 0:
             # All returned empty lists
@@ -101,14 +109,14 @@ class CountingConsensus:
 
         # Step 2c: Discrepancy & Fallback (LLM Resolution)
         self.logger.warning("Counting consensus failed. Triggering Merger LLM Call.")
-        
+
         from extrai.core.prompts.counting import generate_entity_counting_system_prompt
-        
+
         # We need to recreate the system prompt but with conflicting_revisions injected.
         # However, we only have the raw `system_prompt` string.
-        # Actually, if we're inside the LLM call, we can append the revisions manually 
+        # Actually, if we're inside the LLM call, we can append the revisions manually
         # to the existing system prompt.
-        
+
         revisions_json = json.dumps(revisions, indent=2)
         merge_instructions = f"""
 
@@ -140,7 +148,7 @@ Your task is to cross-reference these previous attempts with the text and provid
 
             if isinstance(merged_result, dict) and "counted_entities" in merged_result:
                 return merged_result.get("counted_entities", [])
-                
+
         except Exception as e:
             self.logger.error(f"Fallback merger LLM call failed: {e}")
             # Fallback: return the longest list

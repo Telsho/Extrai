@@ -103,7 +103,11 @@ class EntityCounter:
             examples,
         )
 
-        target_json_schema = EntityCountResult.model_json_schema() if self.config.use_structured_output else None
+        target_json_schema = (
+            EntityCountResult.model_json_schema()
+            if self.config.use_structured_output
+            else None
+        )
 
         client = self.llm_client
         if isinstance(client, list):
@@ -125,7 +129,9 @@ class EntityCounter:
                 if isinstance(revisions, dict):
                     revisions = [revisions]
                 else:
-                    self.logger.warning("Entity counting returned invalid result format")
+                    self.logger.warning(
+                        "Entity counting returned invalid result format"
+                    )
                     return []
 
             # Achieve consensus

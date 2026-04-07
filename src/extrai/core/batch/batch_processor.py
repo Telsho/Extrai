@@ -58,7 +58,9 @@ class BatchProcessor:
             self.model_registry, self.analytics_collector, self.logger
         )
 
-    def _get_absolute_step_index(self, model_index: int, phase: str, count_entities: bool) -> int:
+    def _get_absolute_step_index(
+        self, model_index: int, phase: str, count_entities: bool
+    ) -> int:
         """Calculates the absolute workflow step index based on model index and phase."""
         if not count_entities:
             return model_index
@@ -120,17 +122,22 @@ class BatchProcessor:
                 target_model_names = self.model_registry.get_all_model_names()
 
             import json
+
             revisions = []
 
             # Extract raw content from results
             # Handle both string (JSONL) and list return types
             lines = []
             if isinstance(results_content, str):
-                lines = [l.strip() for l in results_content.strip().split('\n') if l.strip()]
+                lines = [
+                    l.strip() for l in results_content.strip().split("\n") if l.strip()
+                ]
             elif isinstance(results_content, list):
                 lines = results_content
             else:
-                raise ValueError(f"Unexpected results content type: {type(results_content)}")
+                raise ValueError(
+                    f"Unexpected results content type: {type(results_content)}"
+                )
 
             if not lines:
                 raise ValueError("Empty results content")
@@ -178,7 +185,7 @@ class BatchProcessor:
                 generate_entity_counting_system_prompt,
                 generate_entity_counting_user_prompt,
             )
-            
+
             schema_json = self.model_registry.get_schema_for_models(target_model_names)
             system_prompt = generate_entity_counting_system_prompt(
                 target_model_names,
@@ -186,19 +193,29 @@ class BatchProcessor:
                 context.config.custom_counting_context,
             )
             user_prompt = generate_entity_counting_user_prompt(context.input_strings)
-            target_json_schema = self.entity_counter.get_counting_model(target_model_names).model_json_schema() if self.config.use_structured_output else None
+            target_json_schema = (
+                self.entity_counter.get_counting_model(
+                    target_model_names
+                ).model_json_schema()
+                if self.config.use_structured_output
+                else None
+            )
 
             # Achieve consensus
-            consensus_result = await self.entity_counter.counting_consensus.achieve_consensus(
-                revisions=revisions,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                target_json_schema=target_json_schema,
+            consensus_result = (
+                await self.entity_counter.counting_consensus.achieve_consensus(
+                    revisions=revisions,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    target_json_schema=target_json_schema,
+                )
             )
 
             # Filter out any hallucinated models not in target_model_names
             entity_descriptions = [
-                item for item in consensus_result if item.get("model") in target_model_names
+                item
+                for item in consensus_result
+                if item.get("model") in target_model_names
             ]
 
             self.logger.debug(f"Extracted entity descriptions: {entity_descriptions}")
@@ -209,7 +226,9 @@ class BatchProcessor:
 
             # Create step for counting completion
             step_index_abs = self._get_absolute_step_index(
-                context.config.current_model_index, "counting", context.config.count_entities
+                context.config.current_model_index,
+                "counting",
+                context.config.count_entities,
             )
 
             step = BatchJobStep(
@@ -233,7 +252,9 @@ class BatchProcessor:
                 message="Counting complete, extraction submitted.",
             )
         except Exception as e:
-            self.logger.error(f"Error processing counting completion: {e}", exc_info=True)
+            self.logger.error(
+                f"Error processing counting completion: {e}", exc_info=True
+            )
             context.status = BatchJobStatus.FAILED
             db_session.add(context)
             db_session.commit()
@@ -246,9 +267,10 @@ class BatchProcessor:
     ) -> BatchProcessResult:
         try:
             client = self.client_rotator.get_next_client()
-            results, validation_errors = await self.retriever.retrieve_and_validate_results(
-                context, client
-            )
+            (
+                results,
+                validation_errors,
+            ) = await self.retriever.retrieve_and_validate_results(context, client)
 
             if validation_errors:
                 return await self._handle_batch_retry(
@@ -286,7 +308,9 @@ class BatchProcessor:
     ):
         # Save step results
         step_index_abs = self._get_absolute_step_index(
-            context.config.current_model_index, "extraction", context.config.count_entities
+            context.config.current_model_index,
+            "extraction",
+            context.config.count_entities,
         )
 
         step = BatchJobStep(
@@ -303,13 +327,17 @@ class BatchProcessor:
         if not context.config.hierarchical:
             is_final = True
         else:
-            is_final = self.hierarchical_coordinator.is_final_step(context.config.current_model_index)
+            is_final = self.hierarchical_coordinator.is_final_step(
+                context.config.current_model_index
+            )
 
         if is_final:
             return await self._finalize_completion(context, db_session)
         else:
             # Submit next step using HierarchicalCoordinator
-            next_step_index = self.hierarchical_coordinator.next_index(context.config.current_model_index)
+            next_step_index = self.hierarchical_coordinator.next_index(
+                context.config.current_model_index
+            )
 
             if context.config.count_entities:
                 await self.submitter._submit_counting_phase(
@@ -391,7 +419,7 @@ class BatchProcessor:
         # Persist objects (this links FKs and commits)
         self.result_processor.persist(processed_objects, db_session)
 
-        context.results = [p.model_dump(mode='json') for p in processed_objects]
+        context.results = [p.model_dump(mode="json") for p in processed_objects]
         context.status = BatchJobStatus.COMPLETED
         context.updated_at = datetime.now(UTC)
         db_session.add(context)

@@ -279,8 +279,12 @@ class WorkflowOrchestrator:
             db_session,
         )
 
-        if result.status.name == "COMPLETED" and result.hydrated_objects and result.original_pk_map:
-             self.result_processor.original_pk_map.update(result.original_pk_map)
+        if (
+            result.status.name == "COMPLETED"
+            and result.hydrated_objects
+            and result.original_pk_map
+        ):
+            self.result_processor.original_pk_map.update(result.original_pk_map)
 
         return result
 

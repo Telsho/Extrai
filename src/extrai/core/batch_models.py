@@ -7,8 +7,6 @@ from sqlalchemy import JSON, Column
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
 
-from enferno.extensions import db
-
 from .config.batch_job_config import BatchJobConfig
 
 
@@ -25,9 +23,7 @@ class DataClassJSON(TypeDecorator):
             return asdict(value)
         return value
 
-    def process_result_value(
-        self, value: Any | None, dialect
-    ) -> BatchJobConfig | None:
+    def process_result_value(self, value: Any | None, dialect) -> BatchJobConfig | None:
         if value is None:
             return None
         return BatchJobConfig(**value)
@@ -51,7 +47,6 @@ class BatchJobContext(SQLModel, table=True):
     """
     Stores the state of a batch job managed by the WorkflowOrchestrator.
     """
-    metadata = db.metadata
 
     root_batch_id: str = Field(primary_key=True)
     current_batch_id: str = Field(index=True)  # Provider's batch ID
@@ -78,8 +73,6 @@ class BatchJobContext(SQLModel, table=True):
 
 
 class BatchJobStep(SQLModel, table=True):
-    metadata = db.metadata
-
     id: int | None = Field(default=None, primary_key=True)
     batch_id: str = Field(foreign_key="batchjobcontext.root_batch_id")
     step_index: int

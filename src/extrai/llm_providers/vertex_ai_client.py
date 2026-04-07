@@ -57,8 +57,10 @@ class VertexAIClient(BaseGoogleGenAIClient):
                 else:
                     try:
                         key_dict = json.loads(service_account_json)
-                        credentials = service_account.Credentials.from_service_account_info(
-                            key_dict, scopes=scopes
+                        credentials = (
+                            service_account.Credentials.from_service_account_info(
+                                key_dict, scopes=scopes
+                            )
                         )
                     except json.JSONDecodeError:
                         raise ValueError(
@@ -73,7 +75,7 @@ class VertexAIClient(BaseGoogleGenAIClient):
                 # Need an access token for the OpenAI-compatible endpoint
                 credentials.refresh(Request())
                 api_key = credentials.token
-                
+
                 # Infer project_id if not explicitly provided
                 if not project_id and hasattr(credentials, "project_id"):
                     project_id = credentials.project_id
@@ -120,7 +122,7 @@ class VertexAIClient(BaseGoogleGenAIClient):
                 client_args["location"] = location
             elif api_key and api_key != "dummy":
                 client_args["api_key"] = api_key
-            
+
             self.genai_client = genai.Client(**client_args)
         else:
             self.genai_client = None
@@ -146,7 +148,7 @@ class VertexAIClient(BaseGoogleGenAIClient):
             for req in src:
                 vertex_req = {"request": {"contents": req.get("contents", [])}}
                 req_config = req.get("config", {})
-                
+
                 gen_config = {}
                 if "response_mime_type" in req_config:
                     gen_config["responseMimeType"] = req_config["response_mime_type"]
@@ -156,28 +158,30 @@ class VertexAIClient(BaseGoogleGenAIClient):
                     gen_config["temperature"] = req_config["temperature"]
                 elif self.temperature is not None:
                     gen_config["temperature"] = self.temperature
-                    
+
                 if gen_config:
                     vertex_req["request"]["generationConfig"] = gen_config
-                    
+
                 if "system_instruction" in req_config:
                     vertex_req["request"]["systemInstruction"] = {
                         "role": "system",
-                        "parts": [{"text": req_config["system_instruction"]}]
+                        "parts": [{"text": req_config["system_instruction"]}],
                     }
                 jsonl_lines.append(json.dumps(vertex_req))
-                
+
             jsonl_content = "\n".join(jsonl_lines)
 
             temp_prompt_dir = os.path.join(tempfile.gettempdir(), "temp_prompts")
             os.makedirs(temp_prompt_dir, exist_ok=True)
             prompt_file_path = os.path.join(temp_prompt_dir, f"{job_id}_prompt.jsonl")
-            
+
             with open(prompt_file_path, "w") as f:
                 f.write(jsonl_content + "\n")
 
             if hasattr(self, "_credentials") and self._credentials:
-                storage_client = storage.Client(credentials=self._credentials, project=self._project_id)
+                storage_client = storage.Client(
+                    credentials=self._credentials, project=self._project_id
+                )
             else:
                 storage_client = storage.Client()
 
@@ -198,9 +202,11 @@ class VertexAIClient(BaseGoogleGenAIClient):
                 config = {}
             config["dest"] = gcs_output_uri
             config["display_name"] = f"batch_{job_id}"
-            
+
             if self.logger:
-                self.logger.info(f"VertexAIClient: Uploaded batch inputs to {gcs_input_uri}. Output will be at {gcs_output_uri}")
+                self.logger.info(
+                    f"VertexAIClient: Uploaded batch inputs to {gcs_input_uri}. Output will be at {gcs_output_uri}"
+                )
 
             return self.genai_client.batches.create(
                 model=model,
@@ -209,7 +215,9 @@ class VertexAIClient(BaseGoogleGenAIClient):
             )
         else:
             if self.logger:
-                self.logger.warning("GCS_BUCKET_NAME not set, falling back to inline source")
+                self.logger.warning(
+                    "GCS_BUCKET_NAME not set, falling back to inline source"
+                )
 
         return self.genai_client.batches.create(
             model=model,
@@ -222,20 +230,22 @@ class VertexAIClient(BaseGoogleGenAIClient):
             return await super().retrieve_batch_results(batch_id)
 
         job = await self.retrieve_batch_job(batch_id)
-        
+
         if hasattr(job, "dest") and hasattr(job.dest, "gcs_uri") and job.dest.gcs_uri:
             from google.cloud import storage
             import json
-            
+
             if hasattr(self, "_credentials") and self._credentials:
-                storage_client = storage.Client(credentials=self._credentials, project=self._project_id)
+                storage_client = storage.Client(
+                    credentials=self._credentials, project=self._project_id
+                )
             else:
                 storage_client = storage.Client()
-                
+
             gcs_uri = job.dest.gcs_uri
             bucket_name, blob_prefix = gcs_uri.replace("gs://", "").split("/", 1)
             bucket = storage_client.bucket(bucket_name)
-            
+
             output_lines = []
             blobs = bucket.list_blobs(prefix=blob_prefix)
             for blob in blobs:
@@ -252,26 +262,41 @@ class VertexAIClient(BaseGoogleGenAIClient):
                                 content_text = resp["text"]
                             elif "candidates" in resp and resp["candidates"]:
                                 try:
-                                    content_text = resp["candidates"][0]["content"]["parts"][0]["text"]
+                                    content_text = resp["candidates"][0]["content"][
+                                        "parts"
+                                    ][0]["text"]
                                 except (KeyError, IndexError):
                                     pass
-                        
+
                         openai_resp = {
                             "id": "batch_req",
                             "response": {
                                 "status_code": 200,
-                                "body": {"choices": [{"message": {"content": content_text}}]},
+                                "body": {
+                                    "choices": [{"message": {"content": content_text}}]
+                                },
                             },
                         }
-                        
-                        if "response" in response_data and "usage_metadata" in response_data["response"]:
+
+                        if (
+                            "response" in response_data
+                            and "usage_metadata" in response_data["response"]
+                        ):
                             usage = response_data["response"]["usage_metadata"]
                             openai_resp["response"]["body"]["usage"] = {
-                                "prompt_tokens": usage.get("promptTokenCount", usage.get("prompt_token_count", 0)),
-                                "completion_tokens": usage.get("candidatesTokenCount", usage.get("candidates_token_count", 0)),
-                                "total_tokens": usage.get("totalTokenCount", usage.get("total_token_count", 0)),
+                                "prompt_tokens": usage.get(
+                                    "promptTokenCount",
+                                    usage.get("prompt_token_count", 0),
+                                ),
+                                "completion_tokens": usage.get(
+                                    "candidatesTokenCount",
+                                    usage.get("candidates_token_count", 0),
+                                ),
+                                "total_tokens": usage.get(
+                                    "totalTokenCount", usage.get("total_token_count", 0)
+                                ),
                             }
-                            
+
                         output_lines.append(json.dumps(openai_resp))
             return "\n".join(output_lines)
 

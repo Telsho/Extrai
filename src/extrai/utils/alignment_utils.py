@@ -42,7 +42,7 @@ def align_entity_arrays(
         return arrays
 
     lengths = [len(arr) for arr in arrays]
-    
+
     if truncate_to_min_length:
         if len(set(lengths)) > 1:
             print(
@@ -50,7 +50,7 @@ def align_entity_arrays(
             )
             min_length = min(lengths)
             arrays = [arr[:min_length] for arr in arrays]
-            
+
         reference = arrays[0]
     else:
         # Find the longest array to use as reference
@@ -58,26 +58,26 @@ def align_entity_arrays(
         reference = arrays[max_idx]
 
     aligned_results = []
-    
+
     # Align each array to match the reference
     for arr in arrays:
         if arr is reference and truncate_to_min_length:
             aligned_results.append(reference[:])
             continue
-            
+
         if arr is reference:
             # If this is the reference array (and we didn't truncate),
             # we still want to add it as is
             aligned_results.append(reference[:])
             continue
-            
+
         reordered = []
         used_indices = set()
 
         for ref_obj in reference:
             # Find best match in current array
             best_idx = find_best_match(ref_obj, arr, used_indices)
-            
+
             if best_idx != -1:
                 reordered.append(arr[best_idx])
                 used_indices.add(best_idx)

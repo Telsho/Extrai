@@ -41,7 +41,9 @@ class BatchSubmitter:
         self.request_factory = request_factory
         self.logger = logger
 
-    def _get_absolute_step_index(self, model_index: int, phase: str, count_entities: bool) -> int:
+    def _get_absolute_step_index(
+        self, model_index: int, phase: str, count_entities: bool
+    ) -> int:
         """Calculates the absolute workflow step index based on model index and phase."""
         if not count_entities:
             return model_index
@@ -186,11 +188,11 @@ class BatchSubmitter:
             if new_context.config.hierarchical:
                 # Interleaved: Even=Count, Odd=Extract. Model = step // 2
                 target_step_index = start_from_step_index // 2
-                is_counting_phase = (start_from_step_index % 2 == 0)
+                is_counting_phase = start_from_step_index % 2 == 0
             else:
                 # Non-hierarchical: 0=Count, 1=Extract
                 target_step_index = 0
-                is_counting_phase = (start_from_step_index == 0)
+                is_counting_phase = start_from_step_index == 0
 
         if is_counting_phase:
             await self._submit_counting_phase(
@@ -259,9 +261,7 @@ class BatchSubmitter:
         examples = context.config.extraction_example_json
 
         total_steps = (
-            len(self.model_registry.models)
-            if context.config.hierarchical
-            else 1
+            len(self.model_registry.models) if context.config.hierarchical else 1
         )
         resolved_context = resolve_step_param(
             custom_counting_context,
@@ -279,7 +279,10 @@ class BatchSubmitter:
 
         client = self.entity_counter.llm_client
         requests = self._create_batch_requests(
-            system_prompt, user_prompt, num_revisions=self.config.num_counting_revisions, override_client=client
+            system_prompt,
+            user_prompt,
+            num_revisions=self.config.num_counting_revisions,
+            override_client=client,
         )
 
         response_model = None
@@ -340,9 +343,7 @@ class BatchSubmitter:
 
         # Prepare request
         total_steps = (
-            len(self.model_registry.models)
-            if context.config.hierarchical
-            else 1
+            len(self.model_registry.models) if context.config.hierarchical else 1
         )
 
         request = self.request_factory.prepare_request(

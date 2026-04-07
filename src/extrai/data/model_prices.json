@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-17",
+  "updated_at": "2026-04-02",
   "prices": [
     {
       "id": "amazon-nova-micro",
@@ -736,6 +736,22 @@
       "input": 0.2,
       "output": 1.25,
       "input_cached": 0.02
+    },
+    {
+      "id": "qwen3.6-plus",
+      "vendor": "qwen",
+      "name": "Qwen3.6 Plus \u2264256k",
+      "input": 0.5,
+      "output": 3,
+      "input_cached": null
+    },
+    {
+      "id": "qwen3.6-plus-256k",
+      "vendor": "qwen",
+      "name": "Qwen3.6 Plus >256k",
+      "input": 2,
+      "output": 6,
+      "input_cached": null
     },
     {
       "id": "grok-3",

@@ -64,7 +64,9 @@ You are an expert data extraction AI. Your goal is to extract structured data fr
                 model = entity_dict.get("model", "Unknown")
                 desc = entity_dict.get("description", "")
                 related_ids = entity_dict.get("related_ids", [])
-                related_str = f" | Related IDs: {', '.join(related_ids)}" if related_ids else ""
+                related_str = (
+                    f" | Related IDs: {', '.join(related_ids)}" if related_ids else ""
+                )
                 parts.append(f"{i}. [Model: {model}] Description: {desc}{related_str}")
 
             parts.append(

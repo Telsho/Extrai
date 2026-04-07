@@ -37,9 +37,7 @@ class LLMRunner:
         self.logger = logger
         self.clients = self._setup_clients(llm_client)
         self.client_index = 0
-        self.consensus_runner = ConsensusRunner(
-            config, analytics_collector, logger
-        )
+        self.consensus_runner = ConsensusRunner(config, analytics_collector, logger)
         self.logger.info(
             f"LLMRunner initialized with {len(self.clients)} client(s), "
             f"{config.num_llm_revisions} revisions per cycle"

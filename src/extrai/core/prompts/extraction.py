@@ -126,9 +126,13 @@ Follow this step-by-step process meticulously:
                 model = entity_dict.get("model", "Unknown")
                 desc = entity_dict.get("description", "")
                 related_ids = entity_dict.get("related_ids", [])
-                related_str = f" | Related IDs: {', '.join(related_ids)}" if related_ids else ""
-                prompt_parts.append(f"{i}. [Model: {model}] Description: {desc}{related_str}")
-                
+                related_str = (
+                    f" | Related IDs: {', '.join(related_ids)}" if related_ids else ""
+                )
+                prompt_parts.append(
+                    f"{i}. [Model: {model}] Description: {desc}{related_str}"
+                )
+
             prompt_parts.append(
                 f"\nYou must extract EXACTLY {len(expected_entity_descriptions)} items/entities corresponding to these descriptions."
             )

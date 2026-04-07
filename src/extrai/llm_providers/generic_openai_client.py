@@ -98,12 +98,8 @@ class GenericOpenAIClient(BaseLLMClient):
                     and completion.usage
                 ):
                     input_tokens = getattr(completion.usage, "prompt_tokens", 0)
-                    output_tokens = getattr(
-                        completion.usage, "completion_tokens", 0
-                    )
-                    cost = calculate_cost(
-                        self.model_name, input_tokens, output_tokens
-                    )
+                    output_tokens = getattr(completion.usage, "completion_tokens", 0)
+                    cost = calculate_cost(self.model_name, input_tokens, output_tokens)
                     analytics_collector.record_llm_usage(
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
@@ -138,15 +134,11 @@ class GenericOpenAIClient(BaseLLMClient):
                     and hasattr(chat_completion, "usage")
                     and chat_completion.usage
                 ):
-                    input_tokens = getattr(
-                        chat_completion.usage, "prompt_tokens", 0
-                    )
+                    input_tokens = getattr(chat_completion.usage, "prompt_tokens", 0)
                     output_tokens = getattr(
                         chat_completion.usage, "completion_tokens", 0
                     )
-                    cost = calculate_cost(
-                        self.model_name, input_tokens, output_tokens
-                    )
+                    cost = calculate_cost(self.model_name, input_tokens, output_tokens)
                     analytics_collector.record_llm_usage(
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,

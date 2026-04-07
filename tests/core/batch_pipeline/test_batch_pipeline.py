@@ -32,7 +32,9 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
         self.mock_logger = MagicMock()
 
         with (
-            patch("extrai.core.batch.batch_pipeline.ClientRotator") as MockClientRotator,
+            patch(
+                "extrai.core.batch.batch_pipeline.ClientRotator"
+            ) as MockClientRotator,
             patch(
                 "extrai.core.batch.batch_pipeline.ExtractionContextPreparer"
             ) as MockContextPreparer,
@@ -57,10 +59,11 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
             self.pipeline.prompt_builder = MockBuilder.return_value
             self.pipeline.entity_counter = MockCounter.return_value
             self.pipeline.consensus_runner = MockConsensus.return_value
-            
+
     async def test_submit_batch_success(self):
         # We instantiate a real submitter to test the logic
         from extrai.core.batch.batch_submitter import BatchSubmitter
+
         self.pipeline.submitter = BatchSubmitter(
             self.mock_model_registry,
             self.pipeline.client_rotator,
@@ -68,9 +71,9 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
             self.pipeline.entity_counter,
             self.pipeline.context_preparer,
             self.pipeline.request_factory,
-            self.mock_logger
+            self.mock_logger,
         )
-        
+
         self.pipeline.prompt_builder.build_prompts.return_value = ("sys", "user")
 
         mock_batch_job = MagicMock()
@@ -95,14 +98,15 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
     async def test_retrieve_and_validate_results(self):
         # Use real retriever
         from extrai.core.batch.batch_result_retriever import BatchResultRetriever
-        self.pipeline.retriever = BatchResultRetriever(self.mock_model_registry, self.mock_logger)
-        
+
+        self.pipeline.retriever = BatchResultRetriever(
+            self.mock_model_registry, self.mock_logger
+        )
+
         mock_context = BatchJobContext(current_batch_id="prov_1")
 
         mock_client = self.pipeline.client_rotator.get_next_client.return_value
-        mock_client.retrieve_batch_results = AsyncMock(
-            return_value=["res1", "res2"]
-        )
+        mock_client.retrieve_batch_results = AsyncMock(return_value=["res1", "res2"])
 
         with patch(
             "extrai.core.batch.batch_result_retriever.process_and_validate_llm_output"
@@ -141,6 +145,7 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
         self.pipeline.processor.result_processor.persist.assert_called_once_with(
             ["obj1"], db_session
         )
+
 
 if __name__ == "__main__":
     unittest.main()
