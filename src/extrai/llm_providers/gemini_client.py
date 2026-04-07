@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from .base_google_client import BaseGoogleGenAIClient
 

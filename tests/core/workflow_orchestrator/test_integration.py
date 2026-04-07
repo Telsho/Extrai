@@ -7,7 +7,6 @@ from sqlmodel import SQLModel, create_engine, Session as SQLModelSession
 
 from extrai.core.workflow_orchestrator import WorkflowOrchestrator
 
-
 from tests.core.helpers.orchestrator_test_models import DepartmentModel, EmployeeModel
 from tests.core.helpers.mock_llm_clients import (
     MockLLMClientForWorkflow as MockLLMClient,
@@ -71,19 +70,7 @@ class TestWorkflowOrchestratorExecution(unittest.IsolatedAsyncioTestCase):
         self.mock_llm_client1.set_revisions_to_return([llm_output_to_unwrap])
         self.mock_llm_client2.set_revisions_to_return([llm_output_to_unwrap])
 
-        from extrai.utils.flattening_utils import flatten_json
-
-        example_flat_revision = flatten_json(revision_content)
-        num_unique_paths = len(example_flat_revision)
-
         mock_consensus_output = revision_content
-        mock_analytics_for_clear_consensus = {
-            "revisions_processed": 2,
-            "unique_paths_considered": num_unique_paths,
-            "paths_agreed_by_threshold": num_unique_paths,
-            "paths_resolved_by_conflict_resolver": 0,
-            "paths_omitted_due_to_no_consensus_or_resolver_omission": 0,
-        }
         expected_consensus_input = [revision_content] * 2
 
         with mock.patch.object(

@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
-from extrai.core.entity_counter import EntityCounter, EntityCountResult
+from extrai.core.entity_counter import EntityCounter
 from extrai.core.model_registry import ModelRegistry
 from extrai.core.extraction_config import ExtractionConfig
 from extrai.core.base_llm_client import BaseLLMClient

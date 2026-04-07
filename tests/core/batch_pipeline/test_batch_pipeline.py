@@ -42,7 +42,6 @@ class TestBatchPipeline(unittest.IsolatedAsyncioTestCase):
             patch("extrai.core.batch.batch_pipeline.EntityCounter") as MockCounter,
             patch("extrai.core.batch.batch_pipeline.ConsensusRunner") as MockConsensus,
             patch("extrai.core.batch.batch_pipeline.ModelWrapperBuilder"),
-            patch("extrai.core.batch.batch_pipeline.BatchSubmitter") as MockSubmitter,
             patch("extrai.core.batch.batch_pipeline.BatchStatusChecker"),
             patch("extrai.core.batch.batch_pipeline.BatchResultRetriever"),
             patch("extrai.core.batch.batch_pipeline.BatchProcessor"),

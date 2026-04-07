@@ -57,7 +57,7 @@ class CountingConsensus:
 
         # Step 2a: Length Verification
         lengths = [len(lst) for lst in entity_lists]
-        all_same_length = all(l == lengths[0] for l in lengths)
+        all_same_length = all(le == lengths[0] for le in lengths)
 
         consensus_reached = False
         best_list_idx = 0
@@ -110,7 +110,6 @@ class CountingConsensus:
         # Step 2c: Discrepancy & Fallback (LLM Resolution)
         self.logger.warning("Counting consensus failed. Triggering Merger LLM Call.")
 
-        from extrai.core.prompts.counting import generate_entity_counting_system_prompt
 
         # We need to recreate the system prompt but with conflicting_revisions injected.
         # However, we only have the raw `system_prompt` string.

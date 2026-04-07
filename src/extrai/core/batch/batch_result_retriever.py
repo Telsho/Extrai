@@ -53,7 +53,7 @@ class BatchResultRetriever:
         if isinstance(results_content, str):
             # Split by lines and filter empty lines
             result_lines = [
-                l.strip() for l in results_content.strip().split("\n") if l.strip()
+                li.strip() for li in results_content.strip().split("\n") if li.strip()
             ]
         else:
             result_lines = (

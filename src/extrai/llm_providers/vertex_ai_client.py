@@ -140,7 +140,6 @@ class VertexAIClient(BaseGoogleGenAIClient):
             import json
             import tempfile
             import uuid
-            import os
             from google.cloud import storage
 
             job_id = str(uuid.uuid4())

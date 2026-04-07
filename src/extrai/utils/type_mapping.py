@@ -30,12 +30,6 @@ ORIGIN_HANDLERS = {
     list: lambda args, r: (
         f"list[{','.join([r(arg) for arg in args])}]" if args else "list"
     ),
-    list: lambda args, r: (
-        f"list[{','.join([r(arg) for arg in args])}]" if args else "list"
-    ),
-    dict: lambda args, r: (
-        f"dict[{r(args[0])},{r(args[1])}]" if args and len(args) == 2 else "dict"
-    ),
     dict: lambda args, r: (
         f"dict[{r(args[0])},{r(args[1])}]" if args and len(args) == 2 else "dict"
     ),

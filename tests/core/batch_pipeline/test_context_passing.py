@@ -1,8 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
-from sqlmodel import SQLModel, Session, select
-from datetime import datetime, timezone
-import json
+from sqlmodel import Session
 
 from extrai.core.batch.batch_pipeline import BatchPipeline
 from extrai.core.batch_models import BatchJobContext, BatchJobStatus, BatchJobStep
