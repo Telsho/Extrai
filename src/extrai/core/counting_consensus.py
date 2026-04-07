@@ -110,7 +110,6 @@ class CountingConsensus:
         # Step 2c: Discrepancy & Fallback (LLM Resolution)
         self.logger.warning("Counting consensus failed. Triggering Merger LLM Call.")
 
-
         # We need to recreate the system prompt but with conflicting_revisions injected.
         # However, we only have the raw `system_prompt` string.
         # Actually, if we're inside the LLM call, we can append the revisions manually

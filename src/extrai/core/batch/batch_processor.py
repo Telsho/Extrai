@@ -130,7 +130,9 @@ class BatchProcessor:
             lines = []
             if isinstance(results_content, str):
                 lines = [
-                    li.strip() for li in results_content.strip().split("\n") if li.strip()
+                    li.strip()
+                    for li in results_content.strip().split("\n")
+                    if li.strip()
                 ]
             elif isinstance(results_content, list):
                 lines = results_content
