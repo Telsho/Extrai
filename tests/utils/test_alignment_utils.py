@@ -77,7 +77,7 @@ class TestAlignmentUtils(unittest.TestCase):
                     [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}],
                     [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}],
                 ],
-                "check": lambda res: (res[0][0]["id"] == 1 and res[1][0]["id"] == 1),
+                "check": lambda res: res[0][0]["id"] == 1 and res[1][0]["id"] == 1,
             },
             {
                 "name": "reorder needed",
@@ -98,7 +98,7 @@ class TestAlignmentUtils(unittest.TestCase):
                     [{"id": 1, "val": "X"}],
                     [{"id": 99, "val": "completely different"}],
                 ],
-                "check": lambda res: (res[0][0]["id"] == 1 and res[1][0] is not None),
+                "check": lambda res: res[0][0]["id"] == 1 and res[1][0] is not None,
             },
             {
                 "name": "deeply nested objects",
@@ -112,7 +112,7 @@ class TestAlignmentUtils(unittest.TestCase):
                         {"id": 1, "d": {"n": {"v": "deep"}}},
                     ],
                 ],
-                "check": lambda res: (res[0][0]["id"] == 1 and res[1][0]["id"] == 1),
+                "check": lambda res: res[0][0]["id"] == 1 and res[1][0]["id"] == 1,
             },
             {
                 "name": "lists in objects",
@@ -120,7 +120,7 @@ class TestAlignmentUtils(unittest.TestCase):
                     [{"id": 1, "tags": ["a", "b"]}, {"id": 2, "tags": ["x", "y"]}],
                     [{"id": 2, "tags": ["x", "y"]}, {"id": 1, "tags": ["a", "b"]}],
                 ],
-                "check": lambda res: (res[0][0]["id"] == 1 and res[1][0]["id"] == 1),
+                "check": lambda res: res[0][0]["id"] == 1 and res[1][0]["id"] == 1,
             },
             {
                 "name": "three arrays alignment",

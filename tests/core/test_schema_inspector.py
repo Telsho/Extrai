@@ -63,24 +63,36 @@ def inspector(engine):
         (
             Employee,
             [
-                lambda s: s["comment"]
-                == "Stores detailed information about company employees.",
+                lambda s: (
+                    s["comment"]
+                    == "Stores detailed information about company employees."
+                ),
                 lambda s: s["info_dict"] == {"confidentiality": "high"},
                 lambda s: s["columns"]["id"]["comment"] == "Unique Employee ID (PK)",
-                lambda s: s["columns"]["email"]["info_dict"]["validation_rule"]
-                == "standard_email_format",
-                lambda s: s["relationships"]["department"]["info_dict"]["description"]
-                == "The department this employee is assigned to.",
-                lambda s: s["relationships"]["department"]["nested_schema"][
-                    "table_name"
-                ]
-                == "departments",
-                lambda s: s["relationships"]["department"]["nested_schema"][
-                    "relationships"
-                ]["employees"]["nested_schema"]["recursion_detected_for_type"]
-                == "Employee",
-                lambda s: "employees.department_id"
-                in s["relationships"]["department"]["foreign_key_constraints_involved"],
+                lambda s: (
+                    s["columns"]["email"]["info_dict"]["validation_rule"]
+                    == "standard_email_format"
+                ),
+                lambda s: (
+                    s["relationships"]["department"]["info_dict"]["description"]
+                    == "The department this employee is assigned to."
+                ),
+                lambda s: (
+                    s["relationships"]["department"]["nested_schema"]["table_name"]
+                    == "departments"
+                ),
+                lambda s: (
+                    s["relationships"]["department"]["nested_schema"]["relationships"][
+                        "employees"
+                    ]["nested_schema"]["recursion_detected_for_type"]
+                    == "Employee"
+                ),
+                lambda s: (
+                    "employees.department_id"
+                    in s["relationships"]["department"][
+                        "foreign_key_constraints_involved"
+                    ]
+                ),
             ],
         ),
         (
@@ -88,72 +100,93 @@ def inspector(engine):
             [
                 lambda s: s["comment"] == "Stores all company departments.",
                 lambda s: s["columns"]["id"]["comment"] == "Unique Department ID (PK)",
-                lambda s: s["relationships"]["employees"]["info_dict"][
-                    "relationship_detail"
-                ]
-                == "All employees belonging to this department.",
-                lambda s: s["relationships"]["employees"]["nested_schema"]["table_name"]
-                == "employees",
-                lambda s: s["relationships"]["employees"]["nested_schema"][
-                    "relationships"
-                ]["department"]["nested_schema"]["recursion_detected_for_type"]
-                == "Department",
+                lambda s: (
+                    s["relationships"]["employees"]["info_dict"]["relationship_detail"]
+                    == "All employees belonging to this department."
+                ),
+                lambda s: (
+                    s["relationships"]["employees"]["nested_schema"]["table_name"]
+                    == "employees"
+                ),
+                lambda s: (
+                    s["relationships"]["employees"]["nested_schema"]["relationships"][
+                        "department"
+                    ]["nested_schema"]["recursion_detected_for_type"]
+                    == "Department"
+                ),
             ],
         ),
         (
             Project,
             [
-                lambda s: s["relationships"]["members"]["related_model_name"]
-                == "Member",
-                lambda s: s["relationships"]["members"]["secondary_table_name"]
-                == "project_member",
-                lambda s: "project_member.project_id"
-                in s["relationships"]["members"]["foreign_key_constraints_involved"],
+                lambda s: (
+                    s["relationships"]["members"]["related_model_name"] == "Member"
+                ),
+                lambda s: (
+                    s["relationships"]["members"]["secondary_table_name"]
+                    == "project_member"
+                ),
+                lambda s: (
+                    "project_member.project_id"
+                    in s["relationships"]["members"]["foreign_key_constraints_involved"]
+                ),
             ],
         ),
         (
             TableModel,
             [
                 lambda s: s["table_name"] == "tables",
-                lambda s: s["relationships"]["supports"]["nested_schema"][
-                    "relationships"
-                ]["screws_list"]["nested_schema"]["relationships"]["support"][
-                    "nested_schema"
-                ]["recursion_detected_for_type"]
-                == "Support",
+                lambda s: (
+                    s["relationships"]["supports"]["nested_schema"]["relationships"][
+                        "screws_list"
+                    ]["nested_schema"]["relationships"]["support"]["nested_schema"][
+                        "recursion_detected_for_type"
+                    ]
+                    == "Support"
+                ),
             ],
         ),
         (ModelWithColumnProperty, [lambda s: "data_length" not in s["columns"]]),
         (
             ModelWithCustomColType,
             [
-                lambda s: s["columns"]["custom_field"]["python_type"]
-                == "unknown_error_accessing_type"
+                lambda s: (
+                    s["columns"]["custom_field"]["python_type"]
+                    == "unknown_error_accessing_type"
+                )
             ],
         ),
         (
             FKParent,
             [
-                lambda s: "fk_child_sync.parent_id_col"
-                in s["relationships"]["children_sync"][
-                    "foreign_key_constraints_involved"
-                ]
+                lambda s: (
+                    "fk_child_sync.parent_id_col"
+                    in s["relationships"]["children_sync"][
+                        "foreign_key_constraints_involved"
+                    ]
+                )
             ],
         ),
         (
             FKParentDirect,
             [
-                lambda s: "fk_child_direct.parent_fk_col_name"
-                in s["relationships"]["children_direct"][
-                    "foreign_key_constraints_involved"
-                ]
+                lambda s: (
+                    "fk_child_direct.parent_fk_col_name"
+                    in s["relationships"]["children_direct"][
+                        "foreign_key_constraints_involved"
+                    ]
+                )
             ],
         ),
         (
             ViewOnlyParent,
             [
-                lambda s: "viewonly_child.parent_id"
-                in s["relationships"]["children"]["foreign_key_constraints_involved"]
+                lambda s: (
+                    "viewonly_child.parent_id"
+                    in s["relationships"]["children"][
+                        "foreign_key_constraints_involved"
+                    ]
+                )
             ],
         ),
     ],
@@ -343,8 +376,10 @@ def test_process_relationship_for_llm_schema(
         ),
         (
             [Project, Member],
-            lambda s: "members_ref_ids" in s["Project"]["fields"]
-            and "projects_ref_ids" in s["Member"]["fields"],
+            lambda s: (
+                "members_ref_ids" in s["Project"]["fields"]
+                and "projects_ref_ids" in s["Member"]["fields"]
+            ),
         ),
         ([], lambda s: s == {}),
         (
@@ -355,8 +390,10 @@ def test_process_relationship_for_llm_schema(
         ),
         (
             [ArticleScenarioModel],
-            lambda s: "array[string]"
-            in s["ArticleScenarioModel"]["fields"]["key_topics"].lower(),
+            lambda s: (
+                "array[string]"
+                in s["ArticleScenarioModel"]["fields"]["key_topics"].lower()
+            ),
         ),
         (
             [PlainSQLAlchemyModelWithPydanticHints],
