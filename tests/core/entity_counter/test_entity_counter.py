@@ -104,12 +104,6 @@ class TestEntityCounter(unittest.IsolatedAsyncioTestCase):
             ["doc"], ["ModelA"], custom_counting_context=["shard1", "shard2"]
         )
 
-        # Deduplication should keep exactly the union: desc1 and desc2
-        expected_final = [
-            {"model": "ModelA", "temp_id": "1", "description": "desc1"},
-            {"model": "ModelA", "temp_id": "2", "description": "desc2"},
-        ]
-
         # order might matter based on how gather returns, but we can check elements
         self.assertEqual(len(counts), 2)
         self.assertIn(

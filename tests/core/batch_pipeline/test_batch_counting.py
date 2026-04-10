@@ -238,35 +238,8 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
             return_value=ProviderBatchStatus.COMPLETED
         )
 
-        # Mock counting results with shard custom_ids
-        counting_results_file = json.dumps(
-            [
-                {
-                    "custom_id": "123_shard_0",
-                    "response": {
-                        "body": {
-                            "choices": [
-                                {"message": {"content": '{"RootModel": ["desc1"]}'}}
-                            ]
-                        }
-                    },
-                },
-                {
-                    "custom_id": "456_shard_1",
-                    "response": {
-                        "body": {
-                            "choices": [
-                                {"message": {"content": '{"RootModel": ["desc2"]}'}}
-                            ]
-                        }
-                    },
-                },
-            ]
-        )
-
         # We need the retrieve_batch_results to return the raw text that the client processes,
         # but actually BatchProcessor calls retrieve_batch_results and then does logic.
-        # Wait, retrieve_batch_results in the standard mock returns strings of json lines?
         # Let's mock extract_content_from_batch_response instead
         self.pipeline.entity_counter.llm_client.retrieve_batch_results = AsyncMock(
             return_value=[
