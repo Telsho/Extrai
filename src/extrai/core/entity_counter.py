@@ -88,20 +88,12 @@ class EntityCounter:
         self,
         input_strings: list[str],
         model_names: list[str],
-        custom_counting_context: str = "",
+        custom_counting_context: str | list[str] = "",
         previous_entities: list[dict[str, Any]] | None = None,
         examples: str = "",
     ) -> list[dict[str, Any]]:
         """Performs entity counting for specified models using consensus."""
         self.logger.info(f"Counting entities for: {model_names}")
-
-        system_prompt, user_prompt = self.prepare_counting_prompts(
-            input_strings,
-            model_names,
-            custom_counting_context,
-            previous_entities,
-            examples,
-        )
 
         target_json_schema = (
             EntityCountResult.model_json_schema()
@@ -113,8 +105,14 @@ class EntityCounter:
         if isinstance(client, list):
             client = client[0]
 
-        try:
-            # Execute multiple revisions natively
+        async def _count_shard(shard_context: str) -> list[dict[str, Any]]:
+            system_prompt, user_prompt = self.prepare_counting_prompts(
+                input_strings,
+                model_names,
+                shard_context,
+                previous_entities,
+                examples,
+            )
             revisions = await client.generate_and_validate_raw_json_output(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -143,6 +141,33 @@ class EntityCounter:
             )
 
             return consensus_result
+
+        import asyncio
+        import json
+
+        def _deduplicate(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            seen = set()
+            deduped = []
+            for e in entities:
+                e_str = json.dumps(e, sort_keys=True)
+                if e_str not in seen:
+                    seen.add(e_str)
+                    deduped.append(e)
+            return deduped
+
+        try:
+            if isinstance(custom_counting_context, list):
+                self.logger.info(
+                    f"Running sharded counting with {len(custom_counting_context)} shards"
+                )
+                tasks = [_count_shard(ctx) for ctx in custom_counting_context]
+                shard_results = await asyncio.gather(*tasks)
+                merged_results = []
+                for res in shard_results:
+                    merged_results.extend(res)
+                return _deduplicate(merged_results)
+            else:
+                return await _count_shard(custom_counting_context)
 
         except Exception as e:
             self.logger.error(f"Entity counting failed: {e}")

@@ -76,6 +76,10 @@ class BatchProcessor:
     ) -> BatchProcessResult:
         status = await self.status_checker.get_status(root_batch_id, db_session)
         context = db_session.get(BatchJobContext, root_batch_id)
+        if context is None:
+            return BatchProcessResult(
+                status=BatchJobStatus.FAILED, message="Batch context not found"
+            )
 
         # 1. Already Completed
         if status == BatchJobStatus.COMPLETED and context.results:
@@ -144,6 +148,12 @@ class BatchProcessor:
             if not lines:
                 raise ValueError("Empty results content")
 
+            import re
+
+            revisions = []
+            shard_buckets = {}  # {shard_idx: [revisions]}
+            is_sharded = False
+
             # Parse each line as a revision
             for raw_content in lines:
                 try:
@@ -152,7 +162,15 @@ class BatchProcessor:
                     else:
                         wrapper = raw_content
 
+                    custom_id = wrapper.get("custom_id", "")
+                    shard_match = re.search(r"_shard_(\d+)$", custom_id)
+                    shard_idx = None
+                    if shard_match:
+                        is_sharded = True
+                        shard_idx = int(shard_match.group(1))
+
                     # Check if it's wrapped in OpenAI batch response format
+                    parsed_json = None
                     if "response" in wrapper and "body" in wrapper.get("response", {}):
                         body = wrapper["response"]["body"]
 
@@ -168,32 +186,37 @@ class BatchProcessor:
                         if "choices" in body and body["choices"]:
                             content = body["choices"][0]["message"]["content"]
                             parsed_json = json.loads(content)
-                            revisions.append(parsed_json)
                     else:
                         # Maybe it's directly the JSON string or dict
                         if isinstance(wrapper, str):
-                            revisions.append(json.loads(wrapper))
+                            parsed_json = json.loads(wrapper)
                         elif isinstance(wrapper, dict):
-                            revisions.append(wrapper)
+                            parsed_json = wrapper
+
+                    if parsed_json:
+                        if is_sharded and shard_idx is not None:
+                            if shard_idx not in shard_buckets:
+                                shard_buckets[shard_idx] = []
+                            shard_buckets[shard_idx].append(parsed_json)
+                        else:
+                            revisions.append(parsed_json)
 
                 except json.JSONDecodeError as e:
                     self.logger.error(f"Failed to parse counting result as JSON: {e}")
                     continue
 
-            self.logger.debug(f"Parsed {len(revisions)} counting revisions")
+            self.logger.debug(
+                f"Parsed {len(revisions)} non-sharded counting revisions and {len(shard_buckets)} shards"
+            )
 
             # Recreate original prompts to use for consensus fallback if needed
             from extrai.core.prompts.counting import (
                 generate_entity_counting_system_prompt,
                 generate_entity_counting_user_prompt,
             )
+            from extrai.utils.serialization_utils import resolve_step_param
 
             schema_json = self.model_registry.get_schema_for_models(target_model_names)
-            system_prompt = generate_entity_counting_system_prompt(
-                target_model_names,
-                schema_json,
-                context.config.custom_counting_context,
-            )
             user_prompt = generate_entity_counting_user_prompt(context.input_strings)
             target_json_schema = (
                 self.entity_counter.get_counting_model(
@@ -203,15 +226,79 @@ class BatchProcessor:
                 else None
             )
 
-            # Achieve consensus
-            consensus_result = (
-                await self.entity_counter.counting_consensus.achieve_consensus(
-                    revisions=revisions,
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    target_json_schema=target_json_schema,
+            consensus_result = []
+
+            if is_sharded:
+                resolved_context = resolve_step_param(
+                    context.config.custom_counting_context,
+                    context.config.current_model_index
+                    if context.config.hierarchical
+                    else 0,
+                    len(self.model_registry.models)
+                    if context.config.hierarchical
+                    else 1,
                 )
-            )
+                if not isinstance(resolved_context, list):
+                    resolved_context = [resolved_context]  # fallback
+
+                for shard_idx, shard_revisions in shard_buckets.items():
+                    shard_ctx = (
+                        resolved_context[shard_idx]
+                        if shard_idx < len(resolved_context)
+                        else resolved_context[-1]
+                    )
+                    system_prompt = generate_entity_counting_system_prompt(
+                        target_model_names,
+                        schema_json,
+                        shard_ctx,
+                    )
+                    shard_consensus = (
+                        await self.entity_counter.counting_consensus.achieve_consensus(
+                            revisions=shard_revisions,
+                            system_prompt=system_prompt,
+                            user_prompt=user_prompt,
+                            target_json_schema=target_json_schema,
+                        )
+                    )
+                    consensus_result.extend(shard_consensus)
+
+                # Deduplicate
+                seen = set()
+                deduped = []
+                for e in consensus_result:
+                    e_str = json.dumps(e, sort_keys=True)
+                    if e_str not in seen:
+                        seen.add(e_str)
+                        deduped.append(e)
+                consensus_result = deduped
+
+            else:
+                resolved_context = resolve_step_param(
+                    context.config.custom_counting_context,
+                    context.config.current_model_index
+                    if context.config.hierarchical
+                    else 0,
+                    len(self.model_registry.models)
+                    if context.config.hierarchical
+                    else 1,
+                )
+                if isinstance(resolved_context, list):
+                    resolved_context = resolved_context[
+                        0
+                    ]  # Should not happen if it wasn't sharded
+                system_prompt = generate_entity_counting_system_prompt(
+                    target_model_names,
+                    schema_json,
+                    resolved_context,
+                )
+                consensus_result = (
+                    await self.entity_counter.counting_consensus.achieve_consensus(
+                        revisions=revisions,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        target_json_schema=target_json_schema,
+                    )
+                )
 
             # Filter out any hallucinated models not in target_model_names
             entity_descriptions = [
@@ -372,7 +459,6 @@ class BatchProcessor:
             return BatchProcessResult(
                 status=BatchJobStatus.FAILED,
                 message="All revisions failed validation, cannot retry.",
-                errors=validation_errors,
             )
 
         # Store valid partial results
@@ -395,7 +481,6 @@ class BatchProcessor:
         return BatchProcessResult(
             status=BatchJobStatus.SUBMITTED,
             message=f"Partial success. Retrying {num_to_retry} failed revisions.",
-            errors=validation_errors,
         )
 
     async def _finalize_completion(

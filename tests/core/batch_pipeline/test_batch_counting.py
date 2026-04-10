@@ -108,6 +108,50 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         config = added_context.config
         self.assertTrue(config.count_entities)
 
+    async def test_submit_batch_counting_sharded(self):
+        # Setup mocks
+        self.pipeline.entity_counter.prepare_counting_prompts.side_effect = [
+            ("sys1", "user1"),
+            ("sys2", "user2"),
+        ]
+        self.pipeline.context_preparer.prepare_example = AsyncMock(return_value="")
+
+        mock_batch_job = MagicMock()
+        mock_batch_job.id = "counting_batch_id_sharded"
+
+        # Mock the entity_counter's client for counting phase
+        self.pipeline.entity_counter.llm_client.create_batch_job = AsyncMock(
+            return_value=mock_batch_job
+        )
+
+        # When _create_batch_requests is called it uses prepare_request
+        self.pipeline.entity_counter.llm_client.prepare_request = MagicMock(
+            return_value={"model": "test-model", "messages": []}
+        )
+
+        # Test submit
+        root_id = await self.pipeline.submit_batch(
+            self.mock_session,
+            ["doc"],
+            count_entities=True,
+            custom_counting_context=["shard1", "shard2"],
+        )
+
+        # Verify
+        self.assertIsInstance(root_id, str)
+
+        # Check that create_batch_job was called once with requests from both shards
+        self.pipeline.entity_counter.llm_client.create_batch_job.assert_called_once()
+        call_args = self.pipeline.entity_counter.llm_client.create_batch_job.call_args[
+            0
+        ]
+        requests = call_args[0]
+
+        # Assuming 1 revision per shard (from mock_config), we should have 2 total requests
+        self.assertEqual(len(requests), 2)
+        self.assertIn("_shard_0", requests[0]["custom_id"])
+        self.assertIn("_shard_1", requests[1]["custom_id"])
+
     async def test_process_batch_counting_transition(self):
         # Mock Context
         context = BatchJobContext(
@@ -173,6 +217,111 @@ class TestBatchPipelineCounting(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             config.expected_entity_descriptions,
             [{"model": "RootModel", "description": "desc1"}],
+        )
+
+    async def test_process_batch_counting_transition_sharded(self):
+        # Mock Context
+        context = BatchJobContext(
+            root_batch_id="root_1",
+            current_batch_id="counting_batch_id",
+            status=BatchJobStatus.COUNTING_SUBMITTED,
+            input_strings=["doc"],
+            config=BatchJobConfig(
+                count_entities=True,
+                custom_extraction_process="proc",
+                custom_counting_context=["shard1", "shard2"],
+            ),
+        )
+        self.mock_session.get.return_value = context
+
+        self.pipeline.entity_counter.llm_client.get_batch_status = AsyncMock(
+            return_value=ProviderBatchStatus.COMPLETED
+        )
+
+        # Mock counting results with shard custom_ids
+        counting_results_file = json.dumps(
+            [
+                {
+                    "custom_id": "123_shard_0",
+                    "response": {
+                        "body": {
+                            "choices": [
+                                {"message": {"content": '{"RootModel": ["desc1"]}'}}
+                            ]
+                        }
+                    },
+                },
+                {
+                    "custom_id": "456_shard_1",
+                    "response": {
+                        "body": {
+                            "choices": [
+                                {"message": {"content": '{"RootModel": ["desc2"]}'}}
+                            ]
+                        }
+                    },
+                },
+            ]
+        )
+
+        # We need the retrieve_batch_results to return the raw text that the client processes,
+        # but actually BatchProcessor calls retrieve_batch_results and then does logic.
+        # Wait, retrieve_batch_results in the standard mock returns strings of json lines?
+        # Let's mock extract_content_from_batch_response instead
+        self.pipeline.entity_counter.llm_client.retrieve_batch_results = AsyncMock(
+            return_value=[
+                json.dumps({"custom_id": "123_shard_0"}),
+                json.dumps({"custom_id": "456_shard_1"}),
+            ]
+        )
+
+        def mock_extract(line):
+            if "shard_0" in line:
+                return '{"RootModel": ["desc1"]}'
+            return '{"RootModel": ["desc2"]}'
+
+        self.pipeline.entity_counter.llm_client.extract_content_from_batch_response = (
+            mock_extract
+        )
+
+        mock_extraction_job = MagicMock()
+        mock_extraction_job.id = "extraction_batch_id"
+        mock_client_instance = self.pipeline.client_rotator.get_next_client.return_value
+        mock_client_instance.create_batch_job = AsyncMock(
+            return_value=mock_extraction_job
+        )
+
+        self.pipeline.prompt_builder.build_prompts.return_value = ("sys", "user")
+
+        # Mock counting_consensus
+        # For shards, achieve_consensus is called per shard
+        self.pipeline.entity_counter.counting_consensus.achieve_consensus = AsyncMock(
+            side_effect=[
+                [{"model": "RootModel", "description": "desc1"}],
+                [{"model": "RootModel", "description": "desc2"}],
+            ]
+        )
+
+        result = await self.pipeline.process_batch("root_1", self.mock_session)
+
+        # Verify transition
+        self.assertEqual(result.status, BatchJobStatus.SUBMITTED)
+
+        # Verify config updated with combined deduplicated descriptions
+        config = context.config
+        self.assertIsNotNone(config.expected_entity_descriptions)
+        self.assertEqual(len(config.expected_entity_descriptions), 2)
+        self.assertIn(
+            {"model": "RootModel", "description": "desc1"},
+            config.expected_entity_descriptions,
+        )
+        self.assertIn(
+            {"model": "RootModel", "description": "desc2"},
+            config.expected_entity_descriptions,
+        )
+        self.assertEqual(
+            self.pipeline.entity_counter.counting_consensus.achieve_consensus.call_count,
+            2,
         )
 
 
