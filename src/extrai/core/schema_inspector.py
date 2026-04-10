@@ -547,6 +547,7 @@ class SchemaInspector:
                 all_discovered_models=all_discovered_models,  # type: ignore[arg-type]
                 recursion_guard=set(),
             )
+            all_discovered_models = self._topological_sort_models(all_discovered_models)
         except Exception as e:
             self.logger.error(
                 f"Error during SQLModel discovery starting from {root_sqlmodel_class.__name__}: {e}"
@@ -554,3 +555,61 @@ class SchemaInspector:
             return []
 
         return all_discovered_models
+
+    def _topological_sort_models(
+        self, models: list[type[SQLModel]]
+    ) -> list[type[SQLModel]]:
+        """
+        Sorts the discovered models topologically based on their foreign key dependencies.
+        Parents must appear before children.
+        """
+        graph = {m: set() for m in models}
+        model_by_table = {}
+        for m in models:
+            try:
+                table_name = m.__tablename__
+            except AttributeError:
+                try:
+                    table_name = inspect(m).selectable.name
+                except Exception:
+                    table_name = m.__name__.lower()
+            model_by_table[table_name] = m
+
+        for m in models:
+            try:
+                insp = inspect(m)
+                for col_attr in insp.column_attrs:
+                    col = col_attr.expression
+                    for fk in col.foreign_keys:
+                        target_table = fk.column.table.name
+                        if (
+                            target_table in model_by_table
+                            and model_by_table[target_table] != m
+                        ):
+                            graph[m].add(model_by_table[target_table])
+            except Exception:
+                pass
+
+        sorted_models = []
+        visited = set()
+        temp_visited = set()
+
+        def visit(m):
+            if m in temp_visited:
+                return
+            if m not in visited:
+                temp_visited.add(m)
+                for dep in graph[m]:
+                    visit(dep)
+                temp_visited.remove(m)
+                visited.add(m)
+                sorted_models.append(m)
+
+        for m in models:
+            visit(m)
+
+        for m in models:
+            if m not in sorted_models:
+                sorted_models.append(m)
+
+        return sorted_models

@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from extrai.core.base_llm_client import ProviderBatchStatus
+
 from .generic_openai_client import GenericOpenAIClient
 
 try:

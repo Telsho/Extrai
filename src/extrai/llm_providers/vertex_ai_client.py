@@ -140,6 +140,7 @@ class VertexAIClient(BaseGoogleGenAIClient):
             import json
             import tempfile
             import uuid
+
             from google.cloud import storage
 
             job_id = str(uuid.uuid4())
@@ -231,8 +232,9 @@ class VertexAIClient(BaseGoogleGenAIClient):
         job = await self.retrieve_batch_job(batch_id)
 
         if hasattr(job, "dest") and hasattr(job.dest, "gcs_uri") and job.dest.gcs_uri:
-            from google.cloud import storage
             import json
+
+            from google.cloud import storage
 
             if hasattr(self, "_credentials") and self._credentials:
                 storage_client = storage.Client(

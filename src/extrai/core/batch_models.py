@@ -47,7 +47,7 @@ class BatchJobContext(SQLModel, table=True):
     """
     Stores the state of a batch job managed by the WorkflowOrchestrator.
     """
-
+    
     root_batch_id: str = Field(primary_key=True)
     current_batch_id: str = Field(index=True)  # Provider's batch ID
     status: BatchJobStatus = Field(default=BatchJobStatus.SUBMITTED)
