@@ -171,7 +171,7 @@ Once the orchestrator is configured, you can start processing documents using on
    *   ``input_strings`` (``List[str]``): A list of strings, where each string is a document to be processed.
    *   ``db_session_for_hydration`` (``Optional[Session]``): An optional SQLAlchemy session. If provided, the hydrator will use it to resolve relationships. If not, a temporary in-memory session is created.
    *   ``count_entities`` (``bool``, default ``False``): If True, performs an initial pass to count entities before extraction.
-   *   ``custom_counting_context`` (``str``, optional): Custom instructions or context specifically for the entity counting phase.
+   *   ``custom_counting_context`` (``Union[str, List[str]]``, optional): Custom instructions or context specifically for the entity counting phase. If a list of strings is provided, sharded parallel counting is enabled, where each string acts as a separate shard that is executed concurrently and the results are merged.
    *   ``extraction_example_json`` (``str``, optional): A JSON string that provides a few-shot example to the LLM, guiding it to produce a better-structured output. If not provided, the orchestrator will attempt to auto-generate one.
    *   ``extraction_example_object`` (``Optional[Union[SQLModel, List[SQLModel]]]``, optional): An existing SQLModel object or a list of them to be used as the few-shot example. This is an alternative to providing the example as a raw JSON string.
    *   ``custom_extraction_process`` (``str``, optional): Custom, step-by-step instructions for the LLM on how to perform the extraction.

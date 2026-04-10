@@ -40,7 +40,25 @@ results = await orchestrator.synthesize(
 )
 ```
 
-**2. Dedicated LLM Client (`counting_llm_client`)**
+**2. Sharded / Parallel Counting**
+
+To handle complex counting scenarios (e.g. searching for distinct variations of an entity with disjoint rules), you can pass a `list[str]` of multiple specialized prompts to `custom_counting_context`.
+
+The system automatically executes these prompts concurrently (in "shards"), achieves consensus on each shard individually, and then merges and deduplicates the final results. This parallelization prevents massive monolithic prompts from degrading LLM performance without increasing wall-clock time.
+
+```python
+results = await orchestrator.synthesize(
+    ...,
+    count_entities=True,
+    custom_counting_context=[
+        "Count only Domestic invoices and describe their destinations.",
+        "Count only International invoices and describe their destinations.",
+        "Count any catch-all invoices that don't fit the above rules."
+    ]
+)
+```
+
+**3. Dedicated LLM Client (`counting_llm_client`)**
 
 You can use a different model for counting (e.g., a faster/cheaper one) than for the main extraction.
 

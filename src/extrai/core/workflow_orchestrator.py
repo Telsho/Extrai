@@ -189,6 +189,7 @@ class WorkflowOrchestrator:
             ...
             wait_for_completion: If True, waits for the batch job (and any hierarchical steps) to complete.
             poll_interval: Interval in seconds to poll for status if wait_for_completion is True.
+            custom_counting_context (str | list[str], optional): Custom context for entity counting. Passing a list enables sharded parallel counting. Defaults to "".
 
         Returns:
             root_batch_id (str) if wait_for_completion is False.

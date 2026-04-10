@@ -269,21 +269,48 @@ class BatchSubmitter:
             total_steps,
         )
 
-        system_prompt, user_prompt = self.entity_counter.prepare_counting_prompts(
-            input_strings,
-            model_names,
-            resolved_context,
-            previous_entities=previous_entities if previous_entities else None,
-            examples=examples,
-        )
-
         client = self.entity_counter.llm_client
-        requests = self._create_batch_requests(
-            system_prompt,
-            user_prompt,
-            num_revisions=self.config.num_counting_revisions,
-            override_client=client,
-        )
+        requests = []
+
+        if isinstance(resolved_context, list):
+            self.logger.info(
+                f"Preparing sharded counting batch with {len(resolved_context)} shards"
+            )
+            for shard_idx, shard_context in enumerate(resolved_context):
+                system_prompt, user_prompt = (
+                    self.entity_counter.prepare_counting_prompts(
+                        input_strings,
+                        model_names,
+                        shard_context,
+                        previous_entities=previous_entities
+                        if previous_entities
+                        else None,
+                        examples=examples,
+                    )
+                )
+                shard_requests = self._create_batch_requests(
+                    system_prompt,
+                    user_prompt,
+                    num_revisions=self.config.num_counting_revisions,
+                    override_client=client,
+                )
+                for req in shard_requests:
+                    req["custom_id"] = f"{req['custom_id']}_shard_{shard_idx}"
+                requests.extend(shard_requests)
+        else:
+            system_prompt, user_prompt = self.entity_counter.prepare_counting_prompts(
+                input_strings,
+                model_names,
+                resolved_context,
+                previous_entities=previous_entities if previous_entities else None,
+                examples=examples,
+            )
+            requests = self._create_batch_requests(
+                system_prompt,
+                user_prompt,
+                num_revisions=self.config.num_counting_revisions,
+                override_client=client,
+            )
 
         response_model = None
         if self.config.use_structured_output:
@@ -346,27 +373,41 @@ class BatchSubmitter:
             len(self.model_registry.models) if context.config.hierarchical else 1
         )
 
+        from typing import cast
+
         request = self.request_factory.prepare_request(
             input_strings=context.input_strings,
             config=self.config,
             extraction_example_json=context.config.extraction_example_json,
-            custom_extraction_process=resolve_step_param(
-                context.config.custom_extraction_process,
-                step_index,
-                total_steps,
+            custom_extraction_process=cast(
+                str,
+                resolve_step_param(
+                    context.config.custom_extraction_process,
+                    step_index,
+                    total_steps,
+                ),
             ),
-            custom_extraction_guidelines=resolve_step_param(
-                context.config.custom_extraction_guidelines,
-                step_index,
-                total_steps,
+            custom_extraction_guidelines=cast(
+                str,
+                resolve_step_param(
+                    context.config.custom_extraction_guidelines,
+                    step_index,
+                    total_steps,
+                ),
             ),
-            custom_final_checklist=resolve_step_param(
-                context.config.custom_final_checklist,
-                step_index,
-                total_steps,
+            custom_final_checklist=cast(
+                str,
+                resolve_step_param(
+                    context.config.custom_final_checklist,
+                    step_index,
+                    total_steps,
+                ),
             ),
-            custom_context=resolve_step_param(
-                context.config.custom_context, step_index, total_steps
+            custom_context=cast(
+                str,
+                resolve_step_param(
+                    context.config.custom_context, step_index, total_steps
+                ),
             ),
             expected_entity_descriptions=context.config.expected_entity_descriptions,
             previous_entities=previous_entities if previous_entities else None,
@@ -410,7 +451,7 @@ class BatchSubmitter:
         self,
         system_prompt: str,
         user_prompt: str,
-        json_schema: str | None = None,
+        json_schema: dict[str, Any] | str | None = None,
         num_revisions: int | None = None,
         override_client: BaseLLMClient | None = None,
     ) -> list[dict]:

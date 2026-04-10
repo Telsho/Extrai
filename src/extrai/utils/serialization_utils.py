@@ -71,19 +71,19 @@ def make_json_serializable(obj: Any) -> Any:
 
 
 def resolve_step_param(
-    param: str | list[str], step_index: int = 0, total_steps: int = 1
-) -> str:
+    param: Any, step_index: int = 0, total_steps: int = 1
+) -> str | list[str]:
     """
     Resolves a parameter that can be a single string or a list of strings
     to the specific string for the current step.
 
     Args:
-        param: The parameter value (str or list[str])
+        param: The parameter value (str, list[str], or list[str | list[str]])
         step_index: The current step index (0-based)
         total_steps: The total number of steps in the process
 
     Returns:
-        The string value for the current step.
+        The string or list of strings value for the current step.
 
     Raises:
         ValueError: If list length does not match requirements.
@@ -96,6 +96,10 @@ def resolve_step_param(
 
     if not param:
         return ""
+
+    if total_steps == 1:
+        # If there is only 1 step, a list of strings represents shards for this single step.
+        return param
 
     if len(param) == 1:
         return param[0]

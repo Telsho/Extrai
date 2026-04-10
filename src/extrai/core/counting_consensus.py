@@ -2,8 +2,8 @@ import json
 import logging
 from typing import Any
 
-from .extraction_config import ExtractionConfig
 from ..utils.alignment_utils import align_entity_arrays, calculate_similarity
+from .extraction_config import ExtractionConfig
 
 
 class CountingConsensus:
